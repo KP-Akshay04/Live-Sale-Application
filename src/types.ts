@@ -1,0 +1,191 @@
+export type Role = 'Super Admin' | 'Depot Person' | 'Sales Officer';
+
+export interface User {
+  employeeId: string;
+  employeeName: string;
+  username: string;
+  role: Role;
+  password?: string;
+  isActive: boolean;
+}
+
+export interface Product {
+  id: string;
+  description: string;
+  additionalName: string;
+  category: string;
+  group: string;
+  hsnCode: string;
+  barcode: string;
+  gstRate: number; // e.g., 18 for 18%
+  baseUom: string; // e.g., "Box", "Pcs"
+  alternativeQty: number; // Qty per box
+  rate: number;
+}
+
+export interface Depot {
+  siteName: string;
+  description: string;
+  address: string;
+  city: string;
+  district: string;
+  state: string;
+  pin: string;
+  gst: string;
+  contactNumber: string;
+  salesTag: string;
+  assignedUser: string; // Username of Depot Person
+}
+
+export interface SalesOffice {
+  accountId: string;
+  accountName: string;
+  address: string;
+  district: string;
+  state: string;
+  pin: string;
+  gst: string;
+  assignedUser: string; // Username of Sales Officer
+  zone: string; // e.g. North, South, East, West
+  priceListId: string; // Linked Price List ID
+  schemeListId: string; // Linked Scheme List ID
+}
+
+export interface PriceListItem {
+  productId: string;
+  rate: number;
+  uom: string;
+  boxPcs: 'Box' | 'Pcs';
+}
+
+export interface PriceList {
+  id: string;
+  name: string;
+  items: PriceListItem[];
+}
+
+export interface SchemeListItem {
+  productId: string;
+  rate: number; // special rate or flat discount rate
+  uom: string;
+  boxPcs: 'Box' | 'Pcs';
+  buyQty: number;
+  freeQty: number;
+}
+
+export interface SchemeList {
+  id: string;
+  name: string;
+  items: SchemeListItem[];
+}
+
+export interface GoodsIssueItem {
+  productId: string;
+  productName: string;
+  qty: number;
+  uom: string;
+}
+
+export interface GoodsIssue {
+  id: string;
+  depotSite: string;
+  salesOfficerUsername: string;
+  issueDate: string;
+  items: GoodsIssueItem[];
+  status: 'Draft' | 'Issued' | 'Completed';
+  notes?: string;
+}
+
+export interface GoodsReturnItem {
+  productId: string;
+  productName: string;
+  qty: number;
+  uom: string;
+}
+
+export interface GoodsReturn {
+  id: string;
+  depotSite: string;
+  salesOfficerUsername: string;
+  returnDate: string;
+  items: GoodsReturnItem[];
+  status: 'Pending' | 'Completed';
+  reason: string;
+  notes?: string;
+}
+
+export interface SalesEntry {
+  id: string;
+  shopName: string;
+  contactNumber: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  freeQty: number;
+  rate: number;
+  amount: number;
+  schemeApplied: string;
+  paymentMethod: 'Cash' | 'UPI';
+  date: string;
+  salesOfficerUsername: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+  type: 'info' | 'success' | 'warning';
+}
+
+export interface StockItem {
+  productId: string;
+  productName: string;
+  qty: number; // current available stock in truck or depot
+  uom: string;
+}
+
+export interface SyncItem {
+  id: string;
+  type: 'sale' | 'goods_issue' | 'goods_return';
+  timestamp: string;
+  payload: any;
+  status: 'pending' | 'syncing' | 'synced' | 'failed';
+  error?: string;
+}
+
+export interface LineSaleAccount {
+  partyCode: string;
+  partyName: string;
+  state: string;
+  nearestDepot: string;
+  gstn: string;
+  contactNo: string;
+  geographicalLocation: string;
+  upiQr?: string; // Base64 data URL or image path
+  isActive: boolean;
+  schemeListId?: string; // Linked scheme list ID for Scheme View
+}
+
+export const INDIAN_STATES = [
+  'Karnataka',
+  'Maharashtra',
+  'Tamil Nadu',
+  'Andhra Pradesh',
+  'Telangana',
+  'Kerala',
+  'Goa',
+  'Gujarat',
+  'Rajasthan',
+  'Delhi',
+  'Uttar Pradesh',
+  'West Bengal',
+  'Madhya Pradesh',
+  'Punjab',
+  'Haryana',
+  'Odisha',
+  'Assam',
+  'Bihar'
+];
+

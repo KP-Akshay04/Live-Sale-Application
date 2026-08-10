@@ -1,0 +1,8 @@
+{
+  "name": "Live Sale Application",
+  "description": "An enterprise-grade, high-performance web application for sales, depot stock management, and pricing/scheme coordination across three primary organizational roles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

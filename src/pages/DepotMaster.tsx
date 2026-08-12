@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Depot } from '../types';
+import { Depot, INDIAN_STATES } from '../types';
 import { Modal } from '../components/common/Modal';
 import {
   Search,
@@ -10,12 +10,13 @@ import {
   MapPin,
   Warehouse,
   UserCheck,
-  PhoneCall
+  PhoneCall,
+  Route
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const DepotMaster: React.FC = () => {
-  const { depots, addDepot, updateDepot, deleteDepot, users } = useApp();
+  const { depots, addDepot, updateDepot, deleteDepot, users, lineSaleAccounts } = useApp();
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,10 +30,11 @@ export const DepotMaster: React.FC = () => {
   const [modalMode, setModalMode] = useState<'Add' | 'Edit'>('Add');
   const [selectedDepot, setSelectedDepot] = useState<Depot | null>(null);
 
-  // Form inputs
+  // Form inputs according to Depot Master field specification
   const [siteName, setSiteName] = useState('');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [state, setState] = useState('Karnataka');
@@ -41,9 +43,30 @@ export const DepotMaster: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [salesTag, setSalesTag] = useState('');
   const [assignedUser, setAssignedUser] = useState('');
+  const [assignedLines, setAssignedLines] = useState<string[]>([]);
+  const [lineSearchTerm, setLineSearchTerm] = useState('');
 
-  // Filter users with Depot Person role for assignment dropdown
-  const depotUsers = users.filter((u) => u.role === 'Depot Person');
+  // Filter users from User Master with Depot Manager / Depot Person role for User Assignment
+  const depotUsers = users.filter(
+    (u) => u.role === 'Depot Person' || (u.role as string) === 'Depot Manager'
+  );
+
+  // Toggle line selection for Line Sales Tag
+  const handleToggleLine = (partyCode: string) => {
+    setAssignedLines((prev) =>
+      prev.includes(partyCode)
+        ? prev.filter((code) => code !== partyCode)
+        : [...prev, partyCode]
+    );
+  };
+
+  const handleSelectAllLines = () => {
+    setAssignedLines(lineSaleAccounts.map((l) => l.partyCode));
+  };
+
+  const handleClearAllLines = () => {
+    setAssignedLines([]);
+  };
 
   // Open modals
   const handleOpenAddModal = () => {
@@ -52,6 +75,7 @@ export const DepotMaster: React.FC = () => {
     setSiteName('');
     setDescription('');
     setAddress('');
+    setAddressLine2('');
     setCity('');
     setDistrict('');
     setState('Karnataka');
@@ -60,6 +84,8 @@ export const DepotMaster: React.FC = () => {
     setContactNumber('');
     setSalesTag('');
     setAssignedUser(depotUsers[0]?.username || '');
+    setAssignedLines([]);
+    setLineSearchTerm('');
     setIsModalOpen(true);
   };
 
@@ -69,14 +95,17 @@ export const DepotMaster: React.FC = () => {
     setSiteName(depot.siteName);
     setDescription(depot.description);
     setAddress(depot.address);
+    setAddressLine2(depot.addressLine2 || '');
     setCity(depot.city);
     setDistrict(depot.district);
-    setState(depot.state);
+    setState(depot.state || 'Karnataka');
     setPin(depot.pin);
     setGst(depot.gst);
     setContactNumber(depot.contactNumber);
-    setSalesTag(depot.salesTag);
+    setSalesTag(depot.salesTag || '');
     setAssignedUser(depot.assignedUser);
+    setAssignedLines(depot.assignedLines || []);
+    setLineSearchTerm('');
     setIsModalOpen(true);
   };
 
@@ -84,7 +113,7 @@ export const DepotMaster: React.FC = () => {
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!siteName.trim()) {
-      toast.error('Site Name is required.');
+      toast.error('Site Id is required.');
       return;
     }
 
@@ -92,6 +121,7 @@ export const DepotMaster: React.FC = () => {
       siteName,
       description,
       address,
+      addressLine2,
       city,
       district,
       state,
@@ -100,19 +130,20 @@ export const DepotMaster: React.FC = () => {
       contactNumber,
       salesTag,
       assignedUser,
+      assignedLines,
     };
 
     if (modalMode === 'Add') {
       const exists = depots.some((d) => d.siteName.toLowerCase() === siteName.toLowerCase());
       if (exists) {
-        toast.error(`Depot with site name "${siteName}" already exists.`);
+        toast.error(`Depot with Site Id "${siteName}" already exists.`);
         return;
       }
       addDepot(payload);
-      toast.success('Warehouse Depot registered.');
+      toast.success('Logistics Depot registered.');
     } else {
       updateDepot(payload);
-      toast.success('Warehouse Depot updated.');
+      toast.success('Logistics Depot updated.');
     }
     setIsModalOpen(false);
   };
@@ -147,10 +178,10 @@ export const DepotMaster: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display font-bold text-slate-900 text-2xl tracking-tight">
-            Depot Site Registry
+            Depot Master
           </h1>
           <p className="text-slate-500 text-sm">
-            Configure shipping logistics hubs, warehousing properties, and assign authorized Depot Operators.
+            Configure shipping logistics hubs, warehousing properties, and assign Line Sales Tags and Depot Managers.
           </p>
         </div>
         <button
@@ -170,7 +201,7 @@ export const DepotMaster: React.FC = () => {
           </span>
           <input
             type="text"
-            placeholder="Search depots by name, city, or sales tag..."
+            placeholder="Search depots by Site Id, city, or line sales tag..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -205,9 +236,6 @@ export const DepotMaster: React.FC = () => {
                       {depot.siteName}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">{depot.description}</p>
-                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider mt-2">
-                      TAG: {depot.salesTag || 'UNASSIGNED'}
-                    </span>
                   </div>
                 </div>
 
@@ -218,7 +246,8 @@ export const DepotMaster: React.FC = () => {
                     <div>
                       <p className="font-semibold text-slate-800">Location Address</p>
                       <p className="text-slate-500 mt-0.5">
-                        {depot.address}, {depot.city}, {depot.district}, {depot.state} - {depot.pin}
+                        {depot.address}
+                        {depot.addressLine2 ? `, ${depot.addressLine2}` : ''}, {depot.city}, {depot.district}, {depot.state} - {depot.pin}
                       </p>
                     </div>
                   </div>
@@ -235,10 +264,40 @@ export const DepotMaster: React.FC = () => {
                   <div className="flex items-start gap-2">
                     <UserCheck className="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-slate-800">Assigned Depot Officer</p>
+                      <p className="font-semibold text-slate-800">User Assignment (Depot Manager)</p>
                       <p className="text-brand-600 font-bold mt-0.5">@{depot.assignedUser}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">Authorized to issue stock</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Authorized Manager / Operator</p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Assigned Line Sales Tags (Line Sale Master) List */}
+                <div className="pt-3 border-t border-slate-100 flex items-start gap-2">
+                  <Route className="h-4 w-4 text-brand-500 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-800 text-xs">
+                        Line Sales Tag ({depot.assignedLines?.length || 0} Accounts Assigned)
+                      </p>
+                    </div>
+                    {(!depot.assignedLines || depot.assignedLines.length === 0) ? (
+                      <p className="text-slate-400 text-xs mt-0.5 italic">No Line Sale Master records assigned to this depot site.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 mt-1.5" id={`depot-assigned-lines-${depot.siteName.toLowerCase().replace(/\s+/g, '-')}`}>
+                        {depot.assignedLines.map((code) => {
+                          const lineObj = lineSaleAccounts.find((l) => l.partyCode === code);
+                          return (
+                            <span
+                              key={code}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 text-slate-800 text-[11px] font-semibold border border-brand-100 shadow-2xs"
+                            >
+                              <span className="font-mono font-bold text-brand-600">{code}</span>
+                              <span>{lineObj ? `- ${lineObj.partyName}` : ''}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -246,7 +305,7 @@ export const DepotMaster: React.FC = () => {
               {/* Action buttons side */}
               <div className="flex md:flex-col items-end justify-between border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6 shrink-0">
                 <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">
-                  ERP Log Verified
+                  Depot Record Active
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -311,19 +370,19 @@ export const DepotMaster: React.FC = () => {
         </div>
       )}
 
-      {/* Create / Edit Modal Form */}
+      {/* Add Logistics Depot / Depot Master Modal Form */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={modalMode === 'Add' ? 'Register New Logistics Depot Site' : `Edit Depot Config: ${siteName}`}
+        title={modalMode === 'Add' ? 'Add Logistics Depot' : `Edit Depot Config: ${siteName}`}
         size="lg"
       >
         <form onSubmit={handleFormSubmit} className="space-y-5" id="depot-modal-form">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Site Name */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. Site Id */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Site Location Name *
+                1. Site Id *
               </label>
               <input
                 type="text"
@@ -336,53 +395,53 @@ export const DepotMaster: React.FC = () => {
               />
             </div>
 
-            {/* Sales Tag */}
+            {/* 2. Site Description */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Sales Tag Code
-              </label>
-              <input
-                type="text"
-                value={salesTag}
-                onChange={(e) => setSalesTag(e.target.value)}
-                placeholder="e.g. KA-SOUTH"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-mono font-bold"
-              />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Description / Purpose
+                2. Site Description
               </label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Main southern route top-up hub"
+                placeholder="Main southern route distribution hub"
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
               />
             </div>
 
-            {/* Address */}
+            {/* 3. Address Line 1 */}
             <div className="space-y-1 md:col-span-2">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Street Address *
+                3. Address Line 1 *
               </label>
               <input
                 type="text"
                 required
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Building, Plot Number, Industrial Phase"
+                placeholder="Building, Plot Number, Street Name"
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
               />
             </div>
 
-            {/* City */}
+            {/* 4. Address Line 2 */}
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                4. Address Line 2
+              </label>
+              <input
+                type="text"
+                value={addressLine2}
+                onChange={(e) => setAddressLine2(e.target.value)}
+                placeholder="Industrial Area, Landmark (Optional)"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {/* 5. City */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                City *
+                5. City *
               </label>
               <input
                 type="text"
@@ -394,10 +453,10 @@ export const DepotMaster: React.FC = () => {
               />
             </div>
 
-            {/* District */}
+            {/* 6. District */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                District
+                6. District
               </label>
               <input
                 type="text"
@@ -408,23 +467,28 @@ export const DepotMaster: React.FC = () => {
               />
             </div>
 
-            {/* State */}
+            {/* 7. State (Dropdown from INDIAN_STATES) */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                State
+                7. State *
               </label>
-              <input
-                type="text"
+              <select
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
-              />
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-semibold"
+              >
+                {INDIAN_STATES.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* PIN */}
+            {/* 8. Pin */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Postal PIN Code *
+                8. Pin *
               </label>
               <input
                 type="text"
@@ -436,10 +500,24 @@ export const DepotMaster: React.FC = () => {
               />
             </div>
 
-            {/* GST */}
+            {/* 9. Contact Number */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                GSTIN Number *
+                9. Contact Number
+              </label>
+              <input
+                type="text"
+                value={contactNumber}
+                onChange={(e) => setContactNumber(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {/* 10. GST No */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                10. GST No *
               </label>
               <input
                 type="text"
@@ -451,24 +529,125 @@ export const DepotMaster: React.FC = () => {
               />
             </div>
 
-            {/* Contact Number */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Landline/Contact Number
-              </label>
-              <input
-                type="text"
-                value={contactNumber}
-                onChange={(e) => setContactNumber(e.target.value)}
-                placeholder="+91 98765 43210"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
-              />
+            {/* 11. Line Sales Tag (Multi-Select sourced from Line Sale Master) */}
+            <div className="space-y-2 md:col-span-2 pt-2 border-t border-slate-100" id="lines-assignment-section">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Route className="h-3.5 w-3.5 text-brand-500" /> 11. Line Sales Tag (Line Sale Master Records) *
+                </label>
+                <div className="flex items-center gap-2 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllLines}
+                    className="text-brand-600 font-bold hover:underline"
+                    id="btn-select-all-lines"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={handleClearAllLines}
+                    className="text-slate-500 hover:text-slate-800"
+                    id="btn-clear-all-lines"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              {/* Selected Line Badges/Chips */}
+              {assignedLines.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200" id="selected-lines-chips">
+                  {assignedLines.map((code) => {
+                    const lineObj = lineSaleAccounts.find((l) => l.partyCode === code);
+                    return (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white text-slate-800 text-xs font-semibold border border-slate-200 shadow-xs"
+                      >
+                        <span className="font-mono font-bold text-brand-600">{code}</span>
+                        <span className="truncate max-w-[160px] text-slate-600">{lineObj?.partyName}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLine(code)}
+                          className="ml-1 text-slate-400 hover:text-red-500 font-bold"
+                          title="Remove Line Sales Tag"
+                          id={`btn-remove-line-${code}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Line Filter Search */}
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                  <Search className="h-3.5 w-3.5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search Line Sale Master records by party name or code..."
+                  value={lineSearchTerm}
+                  onChange={(e) => setLineSearchTerm(e.target.value)}
+                  id="input-line-search"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500"
+                />
+              </div>
+
+              {/* Checkbox List Container */}
+              <div className="max-h-44 overflow-y-auto space-y-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl divide-y divide-slate-100" id="lines-checkbox-list">
+                {lineSaleAccounts.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-3">No Line Sale Master records found in system.</p>
+                ) : (
+                  lineSaleAccounts
+                    .filter((l) =>
+                      l.partyName.toLowerCase().includes(lineSearchTerm.toLowerCase()) ||
+                      l.partyCode.toLowerCase().includes(lineSearchTerm.toLowerCase()) ||
+                      l.state.toLowerCase().includes(lineSearchTerm.toLowerCase())
+                    )
+                    .map((line) => {
+                      const isSelected = assignedLines.includes(line.partyCode);
+                      return (
+                        <label
+                          key={line.partyCode}
+                          htmlFor={`chk-line-${line.partyCode}`}
+                          className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                            isSelected ? 'bg-brand-50/70 border border-brand-200/60' : 'hover:bg-slate-100/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              id={`chk-line-${line.partyCode}`}
+                              checked={isSelected}
+                              onChange={() => handleToggleLine(line.partyCode)}
+                              className="rounded bg-white border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4 cursor-pointer"
+                            />
+                            <div>
+                              <span className="font-semibold text-slate-800 block">{line.partyName}</span>
+                              <span className="font-mono text-[10px] text-slate-400">{line.partyCode} • {line.state}</span>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <span className="text-[10px] font-bold text-brand-600 bg-brand-100/80 px-2 py-0.5 rounded uppercase">
+                              Assigned
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })
+                )}
+              </div>
             </div>
 
-            {/* Assigned User */}
-            <div className="space-y-1 md:col-span-2">
+            {/* 12. User Assignment (Sourced from User Master) */}
+            <div className="space-y-1 md:col-span-2 pt-2 border-t border-slate-100">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Assigned Authorized Operator (Depot Person Role) *
+                12. User Assignment (Depot Manager / Depot Person) *
               </label>
               <select
                 value={assignedUser}
@@ -476,7 +655,7 @@ export const DepotMaster: React.FC = () => {
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-semibold"
               >
                 {depotUsers.length === 0 ? (
-                  <option disabled>No Depot Person users registered in system. Create one first!</option>
+                  <option disabled>No Depot Person / Depot Manager users registered in system. Create one in User Master!</option>
                 ) : (
                   depotUsers.map((u) => (
                     <option key={u.username} value={u.username}>
@@ -500,7 +679,7 @@ export const DepotMaster: React.FC = () => {
               type="submit"
               className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
             >
-              Register Depot Site
+              Save Logistics Depot
             </button>
           </div>
         </form>
@@ -510,3 +689,4 @@ export const DepotMaster: React.FC = () => {
 };
 
 export default DepotMaster;
+

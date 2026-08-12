@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   BarChart,
   Bar,
@@ -23,7 +26,8 @@ import {
   CheckCircle2,
   TrendingUp,
   CreditCard,
-  Ban
+  Ban,
+  Table as TableIcon
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -34,12 +38,221 @@ export const Reports: React.FC = () => {
   const [dateRange, setDateRange] = useState('This Month');
   const [reportType, setReportType] = useState('Sales Volume');
 
-  const handleExport = (format: 'PDF' | 'Excel' | 'CSV') => {
-    const loadingToast = toast.loading(`Generating unified system ${format} audit log...`);
-    setTimeout(() => {
-      toast.dismiss(loadingToast);
-      toast.success(`Reports downloaded successfully as LiveSale_Report_${format}.zip`);
-    }, 1200);
+  // Filter helper
+  const filterByDateRange = (dateStr: string) => {
+    if (!dateStr) return true;
+    const recDate = new Date(dateStr);
+    const now = new Date();
+
+    if (dateRange === 'Today') {
+      return recDate.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+    }
+    if (dateRange === 'This Week') {
+      const past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return recDate >= past;
+    }
+    if (dateRange === 'This Month') {
+      const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return recDate >= past;
+    }
+    // Last Quarter / All
+    return true;
+  };
+
+  // Helper to construct structured report dataset
+  const getReportExportData = () => {
+    if (reportType === 'Sales Volume') {
+      const filtered = salesEntries.filter((se) => filterByDateRange(se.date));
+      const headers = [
+        'Sales Entry ID',
+        'Date',
+        'Shop Name',
+        'Sales Officer',
+        'Product ID',
+        'Product Name',
+        'Buy Quantity',
+        'Free Quantity',
+        'Rate (₹)',
+        'Total Amount (₹)',
+        'Payment Method',
+        'Scheme Applied'
+      ];
+      const rows = filtered.map((se) => ({
+        'Sales Entry ID': se.id,
+        'Date': se.date,
+        'Shop Name': se.shopName,
+        'Sales Officer': se.salesOfficerUsername,
+        'Product ID': se.productId,
+        'Product Name': se.productName,
+        'Buy Quantity': se.qty,
+        'Free Quantity': se.freeQty,
+        'Rate (₹)': se.rate,
+        'Total Amount (₹)': se.amount,
+        'Payment Method': se.paymentMethod,
+        'Scheme Applied': se.schemeApplied || 'N/A'
+      }));
+      const tableRows = rows.map((r) => Object.values(r));
+      return { rows, headers, tableRows, title: 'Product Sales Volume Audit Report' };
+    }
+
+    if (reportType === 'Payment Modes') {
+      const filtered = salesEntries.filter((se) => filterByDateRange(se.date));
+      const headers = [
+        'Sales Entry ID',
+        'Date',
+        'Shop Name',
+        'Contact Number',
+        'Payment Method',
+        'Settled Amount (₹)',
+        'Sales Officer'
+      ];
+      const rows = filtered.map((se) => ({
+        'Sales Entry ID': se.id,
+        'Date': se.date,
+        'Shop Name': se.shopName,
+        'Contact Number': se.contactNumber || 'N/A',
+        'Payment Method': se.paymentMethod,
+        'Settled Amount (₹)': se.amount,
+        'Sales Officer': se.salesOfficerUsername
+      }));
+      const tableRows = rows.map((r) => Object.values(r));
+      return { rows, headers, tableRows, title: 'Settlement Distribution & Payment Modes Audit Report' };
+    }
+
+    // Audits - Goods Issues & Goods Returns
+    const filteredIssues = goodsIssues.filter((gi) => filterByDateRange(gi.issueDate));
+    const filteredReturns = goodsReturns.filter((gr) => filterByDateRange(gr.returnDate));
+
+    const headers = [
+      'Voucher Type',
+      'Voucher ID',
+      'Date',
+      'Depot Site',
+      'Sales Officer',
+      'Status',
+      'Item Details',
+      'Notes / Reason'
+    ];
+
+    const issueRows = filteredIssues.map((gi) => ({
+      'Voucher Type': 'Dispatch (Goods Issue)',
+      'Voucher ID': gi.id,
+      'Date': gi.issueDate,
+      'Depot Site': gi.depotSite,
+      'Sales Officer': gi.salesOfficerUsername,
+      'Status': gi.status,
+      'Item Details': gi.items.map((i) => `${i.productName} (${i.qty} ${i.uom})`).join(', '),
+      'Notes / Reason': gi.notes || 'N/A'
+    }));
+
+    const returnRows = filteredReturns.map((gr) => ({
+      'Voucher Type': 'Return (Goods Return)',
+      'Voucher ID': gr.id,
+      'Date': gr.returnDate,
+      'Depot Site': gr.depotSite,
+      'Sales Officer': gr.salesOfficerUsername,
+      'Status': gr.status,
+      'Item Details': gr.items.map((i) => `${i.productName} (${i.qty} ${i.uom})`).join(', '),
+      'Notes / Reason': gr.reason || gr.notes || 'N/A'
+    }));
+
+    const rows = [...issueRows, ...returnRows];
+    const tableRows = rows.map((r) => Object.values(r));
+    return { rows, headers, tableRows, title: 'Dispatches & Damaged Goods Audit Log' };
+  };
+
+  const handleExportExcel = () => {
+    try {
+      const { rows, headers, title } = getReportExportData();
+      const exportRows =
+        rows.length > 0
+          ? rows
+          : [headers.reduce((acc, h) => ({ ...acc, [h]: 'No records found' }), {})];
+
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      const colWidths = headers.map((h) => ({ wch: Math.max(h.length + 5, 15) }));
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report_Data');
+
+      const cleanFileName = `LiveSale_${reportType.replace(/\s+/g, '_')}_${dateRange.replace(/\s+/g, '_')}.xlsx`;
+      XLSX.writeFile(workbook, cleanFileName);
+      toast.success(`Excel report exported as ${cleanFileName}!`);
+    } catch (err: any) {
+      console.error('Excel Export error:', err);
+      toast.error('Failed to export Excel report. Please try again.');
+    }
+  };
+
+  const handleSavePDF = () => {
+    try {
+      const { headers, tableRows, title } = getReportExportData();
+      const pdfRows =
+        tableRows.length > 0
+          ? tableRows
+          : [headers.map(() => 'No records found for selected filter criteria')];
+
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'pt',
+        format: 'a4',
+      });
+
+      // Branded Top Banner
+      doc.setFillColor(15, 118, 110); // Brand Teal
+      doc.rect(0, 0, doc.internal.pageSize.width, 50, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('BINDU LIVE SALE APPLICATION', 30, 32);
+
+      doc.setTextColor(30, 41, 59); // Slate 800
+      doc.setFontSize(12);
+      doc.text(`Audit Report: ${title}`, 30, 72);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139); // Slate 500
+      doc.text(`Filter Criteria: ${dateRange}  |  Generated On: ${new Date().toLocaleString('en-IN')}`, 30, 87);
+
+      autoTable(doc, {
+        startY: 100,
+        head: [headers],
+        body: pdfRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [15, 118, 110],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [30, 41, 59],
+          cellPadding: 5,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        margin: { left: 30, right: 30, bottom: 40 },
+        didDrawPage: (data) => {
+          const str = `Page ${doc.getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text(str, doc.internal.pageSize.width - 60, doc.internal.pageSize.height - 15);
+          doc.text('BINDU Live Sale Application — Confidential Audit Trail', 30, doc.internal.pageSize.height - 15);
+        },
+      });
+
+      const cleanFileName = `LiveSale_${reportType.replace(/\s+/g, '_')}_${dateRange.replace(/\s+/g, '_')}.pdf`;
+      doc.save(cleanFileName);
+      toast.success(`PDF report downloaded as ${cleanFileName}!`);
+    } catch (err: any) {
+      console.error('PDF export error:', err);
+      toast.error('Failed to generate PDF report. Please try again.');
+    }
   };
 
   // 1. Compute Sales Charts Data
@@ -90,14 +303,16 @@ export const Reports: React.FC = () => {
         {/* Quick export triggers */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => handleExport('Excel')}
+            onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-semibold shadow-sm transition-colors"
+            id="btn-export-excel-reports"
           >
             <Download className="h-4 w-4" /> Export Excel
           </button>
           <button
-            onClick={() => handleExport('PDF')}
+            onClick={handleSavePDF}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold shadow-md active:scale-[0.98] transition-all"
+            id="btn-save-pdf-reports"
           >
             <FileText className="h-4 w-4" /> Save PDF
           </button>
@@ -235,6 +450,70 @@ export const Reports: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Live Filtered Report Data Table Preview */}
+      {(() => {
+        const { headers, tableRows, title } = getReportExportData();
+        return (
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-fiori space-y-4" id="report-data-preview-table">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-slate-800 text-sm flex items-center gap-2">
+                  <TableIcon className="h-4 w-4 text-brand-600" /> {title}
+                </h3>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  Filtered by <span className="font-semibold text-slate-600">{dateRange}</span> • {tableRows.length} total records ready for export
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportExcel}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Download className="h-3.5 w-3.5 text-emerald-600" /> Excel
+                </button>
+                <button
+                  onClick={handleSavePDF}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <FileText className="h-3.5 w-3.5 text-brand-400" /> PDF
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    {headers.map((h, i) => (
+                      <th key={i} className="px-4 py-3 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600">
+                  {tableRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={headers.length} className="text-center py-8 text-slate-400">
+                        No transactions found for the selected filter criteria ({dateRange}).
+                      </td>
+                    </tr>
+                  ) : (
+                    tableRows.map((row, rIdx) => (
+                      <tr key={rIdx} className="hover:bg-slate-50/50">
+                        {row.map((cell: any, cIdx: number) => (
+                          <td key={cIdx} className="px-4 py-3 whitespace-nowrap font-medium">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

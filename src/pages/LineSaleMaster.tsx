@@ -32,7 +32,9 @@ export const LineSaleMaster: React.FC = () => {
     updateLineSaleAccount,
     toggleLineSaleAccountStatus,
     depots,
-    schemeLists
+    schemeLists,
+    priceLists,
+    users
   } = useApp();
 
   // Role Protection Check
@@ -75,6 +77,8 @@ export const LineSaleMaster: React.FC = () => {
   const [upiQr, setUpiQr] = useState<string>('');
   const [isActive, setIsActive] = useState(true);
   const [schemeListId, setSchemeListId] = useState('');
+  const [priceListId, setPriceListId] = useState('');
+  const [assignedUser, setAssignedUser] = useState('');
 
   // Auxiliary Modal States
   const [previewQrModal, setPreviewQrModal] = useState<{ isOpen: boolean; accountName: string; qrUrl: string }>({
@@ -104,6 +108,8 @@ export const LineSaleMaster: React.FC = () => {
     setUpiQr('');
     setIsActive(true);
     setSchemeListId(schemeLists[0]?.id || '');
+    setPriceListId(priceLists[0]?.id || 'PL-STANDARD');
+    setAssignedUser(users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
     setIsFormModalOpen(true);
   };
 
@@ -120,6 +126,8 @@ export const LineSaleMaster: React.FC = () => {
     setUpiQr(acc.upiQr || '');
     setIsActive(acc.isActive);
     setSchemeListId(acc.schemeListId || schemeLists[0]?.id || '');
+    setPriceListId(acc.priceListId || priceLists[0]?.id || 'PL-STANDARD');
+    setAssignedUser(acc.assignedUser || users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
     setIsFormModalOpen(true);
   };
 
@@ -205,6 +213,8 @@ export const LineSaleMaster: React.FC = () => {
       upiQr,
       isActive,
       schemeListId,
+      priceListId,
+      assignedUser,
     };
 
     if (modalMode === 'Add') {

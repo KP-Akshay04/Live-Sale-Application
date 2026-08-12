@@ -33,13 +33,14 @@ export const ProductMaster: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'Add' | 'Edit'>('Add');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   // Form inputs
   const [id, setId] = useState('');
   const [description, setDescription] = useState('');
   const [additionalName, setAdditionalName] = useState('');
   const [category, setCategory] = useState('Beverages');
-  const [group, setGroup] = useState('Soda');
+  const [group, setGroup] = useState('');
   const [hsnCode, setHsnCode] = useState('');
   const [barcode, setBarcode] = useState('');
   const [gstRate, setGstRate] = useState(18);
@@ -70,7 +71,7 @@ export const ProductMaster: React.FC = () => {
     setDescription('');
     setAdditionalName('');
     setCategory('Beverages');
-    setGroup('Tea');
+    setGroup('');
     setHsnCode('09023020');
     setBarcode('');
     setGstRate(18);
@@ -135,10 +136,15 @@ export const ProductMaster: React.FC = () => {
   };
 
   // Delete product action
-  const handleDelete = (productId: string) => {
-    if (window.confirm('Are you sure you want to delete this product? It will be removed from all price catalogs.')) {
-      deleteProduct(productId);
-      toast.success('Product removed.');
+  const handleDelete = (product: Product) => {
+    setProductToDelete(product);
+  };
+
+  const confirmDeleteProduct = () => {
+    if (productToDelete) {
+      deleteProduct(productToDelete.id);
+      toast.success(`Product ${productToDelete.description} (${productToDelete.id}) removed.`);
+      setProductToDelete(null);
     }
   };
 
@@ -170,10 +176,11 @@ export const ProductMaster: React.FC = () => {
     });
 
   // Paginated layout calculations
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+  const effectivePage = Math.min(currentPage, totalPages);
   const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (effectivePage - 1) * itemsPerPage,
+    effectivePage * itemsPerPage
   );
 
   return (
@@ -345,7 +352,7 @@ export const ProductMaster: React.FC = () => {
                           <Edit2 className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(product.id)}
+                          onClick={() => handleDelete(product)}
                           className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
                           title="Delete Product"
                           id={`btn-delete-${product.id}`}
@@ -419,7 +426,7 @@ export const ProductMaster: React.FC = () => {
                     <Edit2 className="h-3 w-3" /> Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(product.id)}
+                    onClick={() => handleDelete(product)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-100 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
                     id={`btn-delete-mobile-${product.id}`}
                   >
@@ -599,7 +606,7 @@ export const ProductMaster: React.FC = () => {
                 <option value={5}>5% (Essential Goods)</option>
                 <option value={12}>12% (Standard rate 1)</option>
                 <option value={18}>18% (Standard rate 2)</option>
-                <option value={28}>28% (Luxury rate)</option>
+                <option value={40}>40% (Luxury rate)</option>
               </select>
             </div>
 
@@ -668,6 +675,37 @@ export const ProductMaster: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!productToDelete}
+        onClose={() => setProductToDelete(null)}
+        title="Confirm Delete Product"
+        size="sm"
+      >
+        <div className="space-y-4" id="delete-confirmation-dialog">
+          <p className="text-slate-600 text-xs">
+            Are you sure you want to delete product <strong className="text-slate-900">{productToDelete?.description}</strong> ({productToDelete?.id})? It will be removed from all price catalogs and scheme lists.
+          </p>
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setProductToDelete(null)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              id="btn-confirm-delete"
+              onClick={confirmDeleteProduct}
+              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs shadow-md shadow-red-600/10 active:scale-[0.98] transition-all"
+            >
+              Delete Product
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

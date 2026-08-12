@@ -27,6 +27,7 @@ export interface Depot {
   siteName: string;
   description: string;
   address: string;
+  addressLine2?: string;
   city: string;
   district: string;
   state: string;
@@ -34,7 +35,8 @@ export interface Depot {
   gst: string;
   contactNumber: string;
   salesTag: string;
-  assignedUser: string; // Username of Depot Person
+  assignedUser: string; // Username of Depot Person / Depot Manager
+  assignedLines?: string[]; // Array of assigned Line Sale Master partyCodes
 }
 
 export interface SalesOffice {
@@ -82,52 +84,89 @@ export interface SchemeList {
 export interface GoodsIssueItem {
   productId: string;
   productName: string;
+  additionalName?: string;
   qty: number;
   uom: string;
+  rate?: number;
+  amount?: number;
 }
 
 export interface GoodsIssue {
-  id: string;
+  id: string; // Issued DOC ID
   depotSite: string;
+  partyCode?: string;
+  partyName?: string;
+  vehicleNum?: string;
+  startingReading?: number;
+  driverName?: string;
   salesOfficerUsername: string;
   issueDate: string;
   items: GoodsIssueItem[];
-  status: 'Draft' | 'Issued' | 'Completed';
+  status: 'Draft' | 'Issued' | 'Completed' | 'Inprocess' | 'Not Started';
   notes?: string;
 }
 
 export interface GoodsReturnItem {
   productId: string;
   productName: string;
-  qty: number;
+  additionalName?: string;
+  issuedQty?: number;
+  soldQty?: number;
+  diffQty?: number;
+  qty: number; // Return qty
   uom: string;
+  rate?: number;
+  amount?: number;
+  confirmed?: boolean;
 }
 
 export interface GoodsReturn {
   id: string;
   depotSite: string;
+  issueEntryRefId?: string;
+  partyCode?: string;
+  partyName?: string;
+  vehicleNum?: string;
+  startingReading?: number;
+  endingReading?: number;
+  totalRunningRange?: number;
   salesOfficerUsername: string;
   returnDate: string;
   items: GoodsReturnItem[];
-  status: 'Pending' | 'Completed';
+  status: 'Pending' | 'Completed' | 'Inprocess' | 'Not Started';
   reason: string;
   notes?: string;
+}
+
+export interface SalesOrderItem {
+  productId: string;
+  productName: string;
+  additionalName?: string;
+  qty: number;
+  freeQty: number;
+  uom: string;
+  rate: number;
+  amount: number;
+  schemeApplied: string;
 }
 
 export interface SalesEntry {
   id: string;
   shopName: string;
+  partyCode?: string;
   contactNumber: string;
   productId: string;
   productName: string;
   qty: number;
   freeQty: number;
+  uom?: string;
   rate: number;
   amount: number;
   schemeApplied: string;
   paymentMethod: 'Cash' | 'UPI';
   date: string;
   salesOfficerUsername: string;
+  items?: SalesOrderItem[];
 }
 
 export interface Notification {
@@ -166,6 +205,8 @@ export interface LineSaleAccount {
   upiQr?: string; // Base64 data URL or image path
   isActive: boolean;
   schemeListId?: string; // Linked scheme list ID for Scheme View
+  priceListId?: string; // Linked price list ID for Price View
+  assignedUser?: string; // Username of Sales Officer assigned to this Line Sale
 }
 
 export const INDIAN_STATES = [

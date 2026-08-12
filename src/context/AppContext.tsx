@@ -54,6 +54,9 @@ interface AppContextType {
   priceLists: PriceList[];
   updatePriceListItem: (listId: string, productId: string, rate: number, uom: string, boxPcs: 'Box' | 'Pcs') => void;
   schemeLists: SchemeList[];
+  addSchemeList: (schemeList: SchemeList) => void;
+  updateSchemeList: (schemeList: SchemeList) => void;
+  deleteSchemeList: (id: string) => void;
   updateSchemeListItem: (
     listId: string,
     productId: string,
@@ -106,6 +109,8 @@ const INITIAL_LINE_SALE_ACCOUNTS: LineSaleAccount[] = [
     geographicalLocation: '12.9716, 77.5946',
     isActive: true,
     schemeListId: 'SL-SUMMER-SPECIAL',
+    priceListId: 'PL-STANDARD',
+    assignedUser: 'sales',
   },
   {
     partyCode: 'LSA-1002',
@@ -117,6 +122,8 @@ const INITIAL_LINE_SALE_ACCOUNTS: LineSaleAccount[] = [
     geographicalLocation: '12.2958, 76.6394',
     isActive: true,
     schemeListId: 'SL-STANDARD',
+    priceListId: 'PL-STANDARD',
+    assignedUser: 'sales_officer_two',
   },
 ];
 
@@ -201,6 +208,7 @@ const INITIAL_DEPOTS: Depot[] = [
     contactNumber: '+91 98765 43210',
     salesTag: 'KA-SOUTH',
     assignedUser: 'depot',
+    assignedLines: ['LSA-1001'],
   },
   {
     siteName: 'Mysore Satellite Depot',
@@ -214,6 +222,7 @@ const INITIAL_DEPOTS: Depot[] = [
     contactNumber: '+91 87654 32109',
     salesTag: 'KA-WEST',
     assignedUser: 'mysoredepot',
+    assignedLines: ['LSA-1002'],
   }
 ];
 
@@ -356,13 +365,18 @@ const INITIAL_GOODS_ISSUES: GoodsIssue[] = [
   {
     id: 'GI-10023',
     depotSite: 'Central Depot Bangalore',
+    partyCode: 'LSA-1001',
+    partyName: 'Sri Laxmi Line Sales Agency',
+    vehicleNum: 'KA-01-EV-4090',
+    startingReading: 12450,
+    driverName: 'Ramesh Kumar',
     salesOfficerUsername: 'sales',
-    issueDate: '2026-07-09',
+    issueDate: new Date().toISOString().substring(0, 10),
     items: [
-      { productId: 'PROD-001', productName: 'Golden Leaf Premium Tea 250g', qty: 25, uom: 'Box' },
-      { productId: 'PROD-002', productName: 'Sparkling Orange Splash 500ml', qty: 120, uom: 'Pcs' },
-      { productId: 'PROD-003', productName: 'Crisp Lemon Fizz Soda 1L', qty: 80, uom: 'Pcs' },
-      { productId: 'PROD-004', productName: 'Organic Mango Nectar Juice 1L', qty: 15, uom: 'Box' },
+      { productId: 'PROD-001', productName: 'Golden Leaf Premium Tea 250g', additionalName: 'GL Tea 250G', qty: 25, uom: 'Box', rate: 110, amount: 2750 },
+      { productId: 'PROD-002', productName: 'Sparkling Orange Splash 500ml', additionalName: 'Orange Splash 500ML', qty: 120, uom: 'Pcs', rate: 36, amount: 4320 },
+      { productId: 'PROD-003', productName: 'Crisp Lemon Fizz Soda 1L', additionalName: 'Lemon Fizz 1L', qty: 80, uom: 'Pcs', rate: 64, amount: 5120 },
+      { productId: 'PROD-004', productName: 'Organic Mango Nectar Juice 1L', additionalName: 'Mango Juice 1L', qty: 15, uom: 'Box', rate: 88, amount: 1320 },
     ],
     status: 'Completed',
     notes: 'Load out for Gandhinagar and Gandhi Bazar routes',
@@ -370,11 +384,16 @@ const INITIAL_GOODS_ISSUES: GoodsIssue[] = [
   {
     id: 'GI-10024',
     depotSite: 'Central Depot Bangalore',
+    partyCode: 'LSA-1001',
+    partyName: 'Sri Laxmi Line Sales Agency',
+    vehicleNum: 'KA-01-EV-4090',
+    startingReading: 12510,
+    driverName: 'Ramesh Kumar',
     salesOfficerUsername: 'sales',
-    issueDate: '2026-07-10',
+    issueDate: new Date().toISOString().substring(0, 10),
     items: [
-      { productId: 'PROD-002', productName: 'Sparkling Orange Splash 500ml', qty: 50, uom: 'Pcs' },
-      { productId: 'PROD-005', productName: 'Pure Spring Mineral Water 500ml', qty: 200, uom: 'Pcs' },
+      { productId: 'PROD-002', productName: 'Sparkling Orange Splash 500ml', additionalName: 'Orange Splash 500ML', qty: 50, uom: 'Pcs', rate: 36, amount: 1800 },
+      { productId: 'PROD-005', productName: 'Pure Spring Mineral Water 500ml', additionalName: 'Spring Water 500ML', qty: 200, uom: 'Pcs', rate: 12, amount: 2400 },
     ],
     status: 'Completed',
     notes: 'Mid-day top up stock issued.',
@@ -382,11 +401,16 @@ const INITIAL_GOODS_ISSUES: GoodsIssue[] = [
   {
     id: 'GI-10025',
     depotSite: 'Central Depot Bangalore',
+    partyCode: 'LSA-1001',
+    partyName: 'Sri Laxmi Line Sales Agency',
+    vehicleNum: 'KA-05-8812',
+    startingReading: 8900,
+    driverName: 'Suresh Patil',
     salesOfficerUsername: 'sales',
-    issueDate: '2026-07-10',
+    issueDate: new Date().toISOString().substring(0, 10),
     items: [
-      { productId: 'PROD-001', productName: 'Golden Leaf Premium Tea 250g', qty: 5, uom: 'Box' },
-      { productId: 'PROD-003', productName: 'Crisp Lemon Fizz Soda 1L', qty: 30, uom: 'Pcs' },
+      { productId: 'PROD-001', productName: 'Golden Leaf Premium Tea 250g', additionalName: 'GL Tea 250G', qty: 5, uom: 'Box', rate: 110, amount: 550 },
+      { productId: 'PROD-003', productName: 'Crisp Lemon Fizz Soda 1L', additionalName: 'Lemon Fizz 1L', qty: 30, uom: 'Pcs', rate: 64, amount: 1920 },
     ],
     status: 'Draft',
     notes: 'Pending vehicle allocation.',
@@ -397,10 +421,17 @@ const INITIAL_GOODS_RETURNS: GoodsReturn[] = [
   {
     id: 'GR-20004',
     depotSite: 'Central Depot Bangalore',
+    issueEntryRefId: 'GI-10023',
+    partyCode: 'LSA-1001',
+    partyName: 'Sri Laxmi Line Sales Agency',
+    vehicleNum: 'KA-01-EV-4090',
+    startingReading: 12450,
+    endingReading: 12510,
+    totalRunningRange: 60,
     salesOfficerUsername: 'sales',
-    returnDate: '2026-07-08',
+    returnDate: new Date().toISOString().substring(0, 10),
     items: [
-      { productId: 'PROD-002', productName: 'Sparkling Orange Splash 500ml', qty: 5, uom: 'Pcs' },
+      { productId: 'PROD-002', productName: 'Sparkling Orange Splash 500ml', additionalName: 'Orange Splash 500ML', issuedQty: 120, soldQty: 115, diffQty: 5, qty: 5, uom: 'Pcs', rate: 36, amount: 180, confirmed: true },
     ],
     status: 'Completed',
     reason: 'Leakage and dented bottles during transit',
@@ -409,10 +440,17 @@ const INITIAL_GOODS_RETURNS: GoodsReturn[] = [
   {
     id: 'GR-20005',
     depotSite: 'Central Depot Bangalore',
+    issueEntryRefId: 'GI-10023',
+    partyCode: 'LSA-1001',
+    partyName: 'Sri Laxmi Line Sales Agency',
+    vehicleNum: 'KA-01-EV-4090',
+    startingReading: 12450,
+    endingReading: 12500,
+    totalRunningRange: 50,
     salesOfficerUsername: 'sales',
-    returnDate: '2026-07-10',
+    returnDate: new Date().toISOString().substring(0, 10),
     items: [
-      { productId: 'PROD-003', productName: 'Crisp Lemon Fizz Soda 1L', qty: 3, uom: 'Pcs' },
+      { productId: 'PROD-003', productName: 'Crisp Lemon Fizz Soda 1L', additionalName: 'Lemon Fizz 1L', issuedQty: 80, soldQty: 77, diffQty: 3, qty: 3, uom: 'Pcs', rate: 64, amount: 192, confirmed: true },
     ],
     status: 'Pending',
     reason: 'Near Expiry item return from Gandhi Bazar retail shop',
@@ -423,63 +461,71 @@ const INITIAL_GOODS_RETURNS: GoodsReturn[] = [
 const INITIAL_SALES_ENTRIES: SalesEntry[] = [
   {
     id: 'SL-88001',
-    shopName: 'Sri Manjunatha Agencies',
-    contactNumber: '+91 99009 88112',
+    shopName: 'Sri Laxmi Line Sales Agency',
+    partyCode: 'LSA-1001',
+    contactNumber: '+91 98450 12345',
     productId: 'PROD-001',
     productName: 'Golden Leaf Premium Tea 250g',
     qty: 12,
     freeQty: 1,
+    uom: 'Pcs',
     rate: 110,
     amount: 1320,
     schemeApplied: 'Summer Splash Promotion (Buy 10 Get 1)',
     paymentMethod: 'UPI',
-    date: '2026-07-09T10:15:00',
+    date: new Date().toISOString(),
     salesOfficerUsername: 'sales',
   },
   {
     id: 'SL-88002',
-    shopName: 'Sri Manjunatha Agencies',
-    contactNumber: '+91 99009 88112',
+    shopName: 'Sri Laxmi Line Sales Agency',
+    partyCode: 'LSA-1001',
+    contactNumber: '+91 98450 12345',
     productId: 'PROD-002',
     productName: 'Sparkling Orange Splash 500ml',
     qty: 48,
     freeQty: 4,
+    uom: 'Pcs',
     rate: 36,
     amount: 1728,
     schemeApplied: 'Summer Splash Promotion (Buy 24 Get 2)',
     paymentMethod: 'Cash',
-    date: '2026-07-09T10:20:00',
+    date: new Date().toISOString(),
     salesOfficerUsername: 'sales',
   },
   {
     id: 'SL-88003',
-    shopName: 'Balaji Provisions & Retail',
-    contactNumber: '+91 94481 02911',
+    shopName: 'Sri Laxmi Line Sales Agency',
+    partyCode: 'LSA-1001',
+    contactNumber: '+91 98450 12345',
     productId: 'PROD-004',
     productName: 'Organic Mango Nectar Juice 1L',
     qty: 5,
     freeQty: 1,
+    uom: 'Box',
     rate: 88,
     amount: 440,
     schemeApplied: 'Summer Splash Promotion (Buy 5 Get 1)',
     paymentMethod: 'UPI',
-    date: '2026-07-10T14:35:00',
+    date: new Date().toISOString(),
     salesOfficerUsername: 'sales',
   },
   {
     id: 'SL-88004',
-    shopName: 'Laxmi Super Market',
-    contactNumber: '+91 80234 11223',
+    shopName: 'Chamundeshwari Line Traders',
+    partyCode: 'LSA-1002',
+    contactNumber: '+91 98801 67890',
     productId: 'PROD-003',
     productName: 'Crisp Lemon Fizz Soda 1L',
     qty: 24,
     freeQty: 2,
+    uom: 'Pcs',
     rate: 64,
     amount: 1536,
     schemeApplied: 'Summer Splash Promotion (Buy 12 Get 1)',
     paymentMethod: 'Cash',
-    date: '2026-07-10T16:10:00',
-    salesOfficerUsername: 'sales',
+    date: new Date().toISOString(),
+    salesOfficerUsername: 'sales_officer_two',
   }
 ];
 
@@ -768,6 +814,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteProduct = (id: string) => {
     const prod = products.find((p) => p.id === id);
     setProducts((prev) => prev.filter((p) => p.id !== id));
+    setPriceLists((prev) =>
+      prev.map((pl) => ({
+        ...pl,
+        items: pl.items.filter((item) => item.productId !== id),
+      }))
+    );
+    setSchemeLists((prev) =>
+      prev.map((sl) => ({
+        ...sl,
+        items: sl.items.filter((item) => item.productId !== id),
+      }))
+    );
     addNotification('Product Deleted', `Product ${prod?.description || id} removed from catalogs.`, 'warning');
   };
 
@@ -842,6 +900,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ...pl, items: updatedItems };
       })
     );
+  };
+
+  const addSchemeList = (schemeList: SchemeList) => {
+    setSchemeLists((prev) => [...prev, schemeList]);
+    addNotification('Scheme Created', `Promotional scheme "${schemeList.name}" (${schemeList.id}) registered successfully.`, 'success');
+  };
+
+  const updateSchemeList = (updatedList: SchemeList) => {
+    setSchemeLists((prev) => prev.map((sl) => (sl.id === updatedList.id ? updatedList : sl)));
+    addNotification('Scheme Updated', `Promotional scheme "${updatedList.name}" updated.`, 'info');
+  };
+
+  const deleteSchemeList = (id: string) => {
+    const sl = schemeLists.find((x) => x.id === id);
+    setSchemeLists((prev) => prev.filter((x) => x.id !== id));
+    setSalesOffices((prev) =>
+      prev.map((o) => (o.schemeListId === id ? { ...o, schemeListId: '' } : o))
+    );
+    setLineSaleAccounts((prev) =>
+      prev.map((a) => (a.schemeListId === id ? { ...a, schemeListId: '' } : a))
+    );
+    addNotification('Scheme Removed', `Promotional scheme ${sl?.name || id} deleted.`, 'warning');
   };
 
   const updateSchemeListItem = (
@@ -1075,6 +1155,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         priceLists,
         updatePriceListItem,
         schemeLists,
+        addSchemeList,
+        updateSchemeList,
+        deleteSchemeList,
         updateSchemeListItem,
 
         goodsIssues,

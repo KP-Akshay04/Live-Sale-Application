@@ -49,6 +49,7 @@ interface AppContextType {
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
   deleteUser: (employeeId: string) => void;
+  updatePassword: (newPass: string) => boolean;
 
   // Price & Scheme lists
   priceLists: PriceList[];
@@ -715,9 +716,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     salesEntries
       .filter((se) => se.salesOfficerUsername === officer)
       .forEach((se) => {
-        const prod = products.find(p => p.id === se.productId);
-        const factor = prod && prod.baseUom !== se.qty ? 1 : 1; // Simplify to item quantity subtract
-        
         if (stockMap[se.productId]) {
           stockMap[se.productId].qty -= (se.qty + se.freeQty);
         }
@@ -881,6 +879,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const u = users.find((x) => x.employeeId === employeeId);
     setUsers((prev) => prev.filter((u) => u.employeeId !== employeeId));
     addNotification('User Deactivated', `Credential for ${u?.employeeName || employeeId} deleted.`, 'warning');
+  };
+
+  const updatePassword = (newPass: string): boolean => {
+    if (!currentUser) return false;
+    const updated = { ...currentUser, password: newPass };
+    updateUser(updated);
+    return true;
   };
 
   // Prices and Schemes updating
@@ -1151,6 +1156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addUser,
         updateUser,
         deleteUser,
+        updatePassword,
 
         priceLists,
         updatePriceListItem,

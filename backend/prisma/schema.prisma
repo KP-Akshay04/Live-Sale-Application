@@ -1,0 +1,481 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// 1. ROLES
+// -----------------------------------------------------------------------------
+model Role {
+  id          Int      @id @default(autoincrement()) @map("role_id")
+  code        String   @unique @db.VarChar(50)
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+// -----------------------------------------------------------------------------
+// 2. USERS
+// -----------------------------------------------------------------------------
+model User {
+  id           Int      @id @default(autoincrement()) @map("user_id")
+  roleId       Int      @map("role_id")
+  depotId      Int?     @map("depot_id")
+  username     String   @unique @db.VarChar(50)
+  email        String   @unique @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(100)
+  phone        String?  @db.VarChar(20)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  role               Role              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  depot              Depot?            @relation(fields: [depotId], references: [id], onDelete: SetNull)
+  assignedLineSales  LineSaleAccount[]
+  goodsIssuesCreated GoodsIssue[]      @relation("GoodsIssueCreator")
+  sales              Sale[]
+  auditLogs          AuditLog[]
+
+  @@index([roleId])
+  @@index([depotId])
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// 3. DEPOTS
+// -----------------------------------------------------------------------------
+model Depot {
+  id          Int      @id @default(autoincrement()) @map("depot_id")
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  location    String?  @db.VarChar(150)
+  address     String?  @db.Text
+  phone       String?  @db.VarChar(20)
+  sapPlantCode String? @map("sap_plant_code") @db.VarChar(50)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users          User[]
+  depotLineSales DepotLineSale[]
+  goodsIssues    GoodsIssue[]
+
+  @@map("depots")
+}
+
+// -----------------------------------------------------------------------------
+// 4. LINE SALE ACCOUNTS
+// -----------------------------------------------------------------------------
+model LineSaleAccount {
+  id             Int      @id @default(autoincrement()) @map("line_sale_id")
+  partyCode      String   @unique @map("party_code") @db.VarChar(50)
+  accountName    String   @map("account_name") @db.VarChar(150)
+  salesOfficerId Int      @map("sales_officer_id")
+  priceListId    Int?     @map("price_list_id")
+  vehicleNumber  String?  @map("vehicle_number") @db.VarChar(30)
+  routeName      String?  @map("route_name") @db.VarChar(100)
+  sapCustomerCode String? @map("sap_customer_code") @db.VarChar(50)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  salesOfficer    User              @relation(fields: [salesOfficerId], references: [id], onDelete: Restrict)
+  priceList       PriceList?        @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  depotLineSales  DepotLineSale[]
+  lineSaleSchemes LineSaleScheme[]
+  goodsIssues     GoodsIssue[]
+  sales           Sale[]
+
+  @@index([salesOfficerId])
+  @@index([priceListId])
+  @@map("line_sale_accounts")
+}
+
+// -----------------------------------------------------------------------------
+// 5. DEPOT LINE SALES (Many-to-Many join table)
+// -----------------------------------------------------------------------------
+model DepotLineSale {
+  id         Int      @id @default(autoincrement()) @map("depot_line_sale_id")
+  depotId    Int      @map("depot_id")
+  lineSaleId Int      @map("line_sale_id")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  depot    Depot           @relation(fields: [depotId], references: [id], onDelete: Cascade)
+  lineSale LineSaleAccount @relation(fields: [lineSaleId], references: [id], onDelete: Cascade)
+
+  @@unique([depotId, lineSaleId])
+  @@index([lineSaleId])
+  @@map("depot_line_sales")
+}
+
+// -----------------------------------------------------------------------------
+// 6. LINE SALE SCHEMES (Many-to-Many join table)
+// -----------------------------------------------------------------------------
+model LineSaleScheme {
+  id           Int      @id @default(autoincrement()) @map("line_sale_scheme_id")
+  lineSaleId   Int      @map("line_sale_id")
+  schemeListId Int      @map("scheme_list_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  lineSale   LineSaleAccount @relation(fields: [lineSaleId], references: [id], onDelete: Cascade)
+  schemeList SchemeList      @relation(fields: [schemeListId], references: [id], onDelete: Cascade)
+
+  @@unique([lineSaleId, schemeListId])
+  @@index([schemeListId])
+  @@map("line_sale_schemes")
+}
+
+// -----------------------------------------------------------------------------
+// 7. PRODUCTS
+// -----------------------------------------------------------------------------
+model Product {
+  id             Int      @id @default(autoincrement()) @map("product_id")
+  materialCode   String   @unique @map("material_code") @db.VarChar(50)
+  description    String   @db.VarChar(200)
+  additionalName String?  @map("additional_name") @db.VarChar(200)
+  category       String?  @db.VarChar(100)
+  baseUom        String   @map("base_uom") @db.VarChar(20)
+  baseRate       Decimal  @map("base_rate") @db.Decimal(14, 2)
+  hsnCode        String?  @map("hsn_code") @db.VarChar(30)
+  taxRate        Decimal  @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  priceListItems   PriceListItem[]
+  schemeListItems  SchemeListItem[]
+  goodsIssueItems  GoodsIssueItem[]
+  saleItems        SaleItem[]
+  goodsReturnItems GoodsReturnItem[]
+
+  @@map("products")
+}
+
+// -----------------------------------------------------------------------------
+// 8. PRICE LISTS
+// -----------------------------------------------------------------------------
+model PriceList {
+  id          Int       @id @default(autoincrement()) @map("price_list_id")
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  currency    String    @default("INR") @db.VarChar(10)
+  validFrom   DateTime? @map("valid_from")
+  validTo     DateTime? @map("valid_to")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  items     PriceListItem[]
+  lineSales LineSaleAccount[]
+
+  @@map("price_lists")
+}
+
+// -----------------------------------------------------------------------------
+// 9. PRICE LIST ITEMS
+// -----------------------------------------------------------------------------
+model PriceListItem {
+  id          Int      @id @default(autoincrement()) @map("price_list_item_id")
+  priceListId Int      @map("price_list_id")
+  productId   Int      @map("product_id")
+  rate        Decimal  @db.Decimal(14, 2)
+  uom         String   @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([priceListId, productId, uom])
+  @@index([productId])
+  @@map("price_list_items")
+}
+
+// -----------------------------------------------------------------------------
+// 10. SCHEME LISTS
+// -----------------------------------------------------------------------------
+model SchemeList {
+  id          Int       @id @default(autoincrement()) @map("scheme_list_id")
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  schemeType  String    @default("QTY_FREE") @map("scheme_type") @db.VarChar(50)
+  validFrom   DateTime? @map("valid_from")
+  validTo     DateTime? @map("valid_to")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  items           SchemeListItem[]
+  lineSaleSchemes LineSaleScheme[]
+
+  @@map("scheme_lists")
+}
+
+// -----------------------------------------------------------------------------
+// 11. SCHEME LIST ITEMS
+// -----------------------------------------------------------------------------
+model SchemeListItem {
+  id              Int      @id @default(autoincrement()) @map("scheme_list_item_id")
+  schemeListId    Int      @map("scheme_list_id")
+  productId       Int      @map("product_id")
+  minQty          Decimal  @default(0.000) @map("min_qty") @db.Decimal(14, 3)
+  freeQty         Decimal  @default(0.000) @map("free_qty") @db.Decimal(14, 3)
+  discountPercent Decimal  @default(0.00) @map("discount_percent") @db.Decimal(5, 2)
+  discountAmount  Decimal  @default(0.00) @map("discount_amount") @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  schemeList SchemeList @relation(fields: [schemeListId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([schemeListId])
+  @@index([productId])
+  @@map("scheme_list_items")
+}
+
+// -----------------------------------------------------------------------------
+// 12. FREIGHT RATES
+// -----------------------------------------------------------------------------
+model FreightRate {
+  id            Int       @id @default(autoincrement()) @map("freight_rate_id")
+  routeCode     String?   @map("route_code") @db.VarChar(50)
+  fromLocation  String    @map("from_location") @db.VarChar(100)
+  toLocation    String    @map("to_location") @db.VarChar(100)
+  ratePerUnit   Decimal   @map("rate_per_unit") @db.Decimal(14, 2)
+  uom           String    @db.VarChar(20)
+  effectiveDate DateTime? @map("effective_date")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([routeCode])
+  @@map("freight_rates")
+}
+
+// -----------------------------------------------------------------------------
+// 13. GOODS ISSUES
+// -----------------------------------------------------------------------------
+model GoodsIssue {
+  id                   Int       @id @default(autoincrement()) @map("goods_issue_id")
+  documentId           String    @unique @map("document_id") @db.VarChar(50)
+  depotId              Int       @map("depot_id")
+  lineSaleId           Int       @map("line_sale_id")
+  vehicleNumber        String    @map("vehicle_number") @db.VarChar(30)
+  driverName           String    @map("driver_name") @db.VarChar(100)
+  startingMeterReading Decimal?  @map("starting_meter_reading") @db.Decimal(10, 2)
+  closingMeterReading  Decimal?  @map("closing_meter_reading") @db.Decimal(10, 2)
+  status               String    @default("ISSUED") @db.VarChar(30)
+  remarks              String?   @db.Text
+  createdById          Int       @map("created_by_id")
+  issueDate            DateTime  @default(now()) @map("issue_date")
+  sapDocumentId        String?   @map("sap_document_id") @db.VarChar(50)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  depot        Depot            @relation(fields: [depotId], references: [id], onDelete: Restrict)
+  lineSale     LineSaleAccount  @relation(fields: [lineSaleId], references: [id], onDelete: Restrict)
+  createdBy    User             @relation("GoodsIssueCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  items        GoodsIssueItem[]
+  goodsReturns GoodsReturn[]
+
+  @@index([depotId])
+  @@index([lineSaleId])
+  @@index([createdById])
+  @@index([status])
+  @@map("goods_issues")
+}
+
+// -----------------------------------------------------------------------------
+// 14. GOODS ISSUE ITEMS
+// -----------------------------------------------------------------------------
+model GoodsIssueItem {
+  id           Int      @id @default(autoincrement()) @map("goods_issue_item_id")
+  goodsIssueId Int      @map("goods_issue_id")
+  productId    Int      @map("product_id")
+  quantity     Decimal  @db.Decimal(14, 3)
+  uom          String   @db.VarChar(20)
+  rate         Decimal  @db.Decimal(14, 2)
+  amount       Decimal  @db.Decimal(14, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  goodsIssue       GoodsIssue        @relation(fields: [goodsIssueId], references: [id], onDelete: Cascade)
+  product          Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  goodsReturnItems GoodsReturnItem[]
+
+  @@index([goodsIssueId])
+  @@index([productId])
+  @@map("goods_issue_items")
+}
+
+// -----------------------------------------------------------------------------
+// 15. SALES
+// -----------------------------------------------------------------------------
+model Sale {
+  id              Int      @id @default(autoincrement()) @map("sale_id")
+  invoiceNumber   String   @unique @map("invoice_number") @db.VarChar(50)
+  lineSaleId      Int      @map("line_sale_id")
+  salesOfficerId  Int      @map("sales_officer_id")
+  customerName    String   @map("customer_name") @db.VarChar(150)
+  customerPhone   String?  @map("customer_phone") @db.VarChar(20)
+  customerAddress String?  @map("customer_address") @db.Text
+  grossAmount     Decimal  @map("gross_amount") @db.Decimal(14, 2)
+  discountAmount  Decimal  @default(0.00) @map("discount_amount") @db.Decimal(14, 2)
+  taxAmount       Decimal  @default(0.00) @map("tax_amount") @db.Decimal(14, 2)
+  netAmount       Decimal  @map("net_amount") @db.Decimal(14, 2)
+  paymentStatus   String   @default("PENDING") @map("payment_status") @db.VarChar(30)
+  status          String   @default("COMPLETED") @db.VarChar(30)
+  saleDate        DateTime @default(now()) @map("sale_date")
+  sapInvoiceId    String?  @map("sap_invoice_id") @db.VarChar(50)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  lineSale     LineSaleAccount @relation(fields: [lineSaleId], references: [id], onDelete: Restrict)
+  salesOfficer User            @relation(fields: [salesOfficerId], references: [id], onDelete: Restrict)
+  items        SaleItem[]
+  payments     Payment[]
+
+  @@index([lineSaleId])
+  @@index([salesOfficerId])
+  @@index([saleDate])
+  @@map("sales")
+}
+
+// -----------------------------------------------------------------------------
+// 16. SALE ITEMS
+// -----------------------------------------------------------------------------
+model SaleItem {
+  id               Int      @id @default(autoincrement()) @map("sale_item_id")
+  saleId           Int      @map("sale_id")
+  productId        Int      @map("product_id")
+  quantity         Decimal  @db.Decimal(14, 3)
+  freeQuantity     Decimal  @default(0.000) @map("free_quantity") @db.Decimal(14, 3)
+  uom              String   @db.VarChar(20)
+  rate             Decimal  @db.Decimal(14, 2)
+  grossAmount      Decimal  @map("gross_amount") @db.Decimal(14, 2)
+  discountAmount   Decimal  @default(0.00) @map("discount_amount") @db.Decimal(14, 2)
+  netAmount        Decimal  @map("net_amount") @db.Decimal(14, 2)
+  applicableScheme String?  @map("applicable_scheme") @db.VarChar(100)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+// -----------------------------------------------------------------------------
+// 17. PAYMENTS
+// -----------------------------------------------------------------------------
+model Payment {
+  id               Int      @id @default(autoincrement()) @map("payment_id")
+  saleId           Int      @map("sale_id")
+  paymentReference String   @unique @map("payment_reference") @db.VarChar(50)
+  paymentMethod    String   @map("payment_method") @db.VarChar(30)
+  amount           Decimal  @db.Decimal(14, 2)
+  upiReference     String?  @map("upi_reference") @db.VarChar(100)
+  status           String   @default("COMPLETED") @db.VarChar(30)
+  paymentDate      DateTime @default(now()) @map("payment_date")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Restrict)
+
+  @@index([saleId])
+  @@index([paymentMethod])
+  @@map("payments")
+}
+
+// -----------------------------------------------------------------------------
+// 18. GOODS RETURNS
+// -----------------------------------------------------------------------------
+model GoodsReturn {
+  id                   Int       @id @default(autoincrement()) @map("goods_return_id")
+  returnDocumentId     String    @unique @map("return_document_id") @db.VarChar(50)
+  goodsIssueId         Int       @map("goods_issue_id")
+  status               String    @default("COMPLETED") @db.VarChar(30)
+  closingMeterReading  Decimal?  @map("closing_meter_reading") @db.Decimal(10, 2)
+  totalSoldAmount      Decimal   @default(0.00) @map("total_sold_amount") @db.Decimal(14, 2)
+  totalCollectionCash  Decimal   @default(0.00) @map("total_collection_cash") @db.Decimal(14, 2)
+  totalCollectionUpi   Decimal   @default(0.00) @map("total_collection_upi") @db.Decimal(14, 2)
+  shortageAmount       Decimal   @default(0.00) @map("shortage_amount") @db.Decimal(14, 2)
+  remarks              String?   @db.Text
+  reconciliationDate   DateTime  @default(now()) @map("reconciliation_date")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  goodsIssue GoodsIssue        @relation(fields: [goodsIssueId], references: [id], onDelete: Restrict)
+  items      GoodsReturnItem[]
+
+  @@index([goodsIssueId])
+  @@map("goods_returns")
+}
+
+// -----------------------------------------------------------------------------
+// 19. GOODS RETURN ITEMS
+// -----------------------------------------------------------------------------
+model GoodsReturnItem {
+  id               Int      @id @default(autoincrement()) @map("goods_return_item_id")
+  goodsReturnId    Int      @map("goods_return_id")
+  goodsIssueItemId Int      @map("goods_issue_item_id")
+  productId        Int      @map("product_id")
+  issuedQty        Decimal  @map("issued_qty") @db.Decimal(14, 3)
+  soldQty          Decimal  @map("sold_qty") @db.Decimal(14, 3)
+  returnQty        Decimal  @map("return_qty") @db.Decimal(14, 3)
+  damagedQty       Decimal  @default(0.000) @map("damaged_qty") @db.Decimal(14, 3)
+  uom              String   @db.VarChar(20)
+  rate             Decimal  @db.Decimal(14, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  goodsReturn    GoodsReturn    @relation(fields: [goodsReturnId], references: [id], onDelete: Cascade)
+  goodsIssueItem GoodsIssueItem @relation(fields: [goodsIssueItemId], references: [id], onDelete: Restrict)
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([goodsReturnId])
+  @@index([goodsIssueItemId])
+  @@index([productId])
+  @@map("goods_return_items")
+}
+
+// -----------------------------------------------------------------------------
+// 20. AUDIT LOGS
+// -----------------------------------------------------------------------------
+model AuditLog {
+  id         Int      @id @default(autoincrement()) @map("audit_log_id")
+  userId     Int?     @map("user_id")
+  action     String   @db.VarChar(50)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id") @db.VarChar(50)
+  oldValues  String?  @map("old_values") @db.Text
+  newValues  String?  @map("new_values") @db.Text
+  ipAddress  String?  @map("ip_address") @db.VarChar(50)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

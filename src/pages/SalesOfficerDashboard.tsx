@@ -181,7 +181,7 @@ export const SalesOfficerDashboard: React.FC = () => {
         currentItem.productId = prod.id;
         currentItem.productName = prod.description;
         currentItem.additionalName = prod.additionalName;
-        currentItem.uom = prod.uom || 'Pcs';
+        currentItem.uom = prod.baseUom || 'Pcs';
         currentItem.rate = getItemRate(prod.id);
         const { freeQty: fQty, schemeName } = getItemScheme(prod.id, currentItem.qty);
         currentItem.freeQty = fQty;
@@ -1045,7 +1045,7 @@ export const SalesOfficerDashboard: React.FC = () => {
                     return (
                       <tr key={item.productId} className="hover:bg-slate-50">
                         <td className="p-3 font-semibold text-slate-800">{prod?.description || item.productId}</td>
-                        <td className="p-3 text-center font-bold text-slate-600">{prod?.uom || 'Box'}</td>
+                        <td className="p-3 text-center font-bold text-slate-600">{prod?.baseUom || 'Box'}</td>
                         <td className="p-3 text-right font-bold text-brand-600 font-mono">₹{item.rate.toFixed(2)}</td>
                       </tr>
                     );

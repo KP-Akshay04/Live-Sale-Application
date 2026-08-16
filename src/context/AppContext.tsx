@@ -18,6 +18,7 @@ import {
 import { authApi, mapSafeUserToUser } from '../services/authApi';
 import { depotService } from '../services/depotService';
 import { productService } from '../services/productService';
+import { priceListService } from '../services/priceListService';
 
 interface AppContextType {
   // Auth state
@@ -58,6 +59,7 @@ interface AppContextType {
 
   // Price & Scheme lists
   priceLists: PriceList[];
+  refreshPriceLists: () => Promise<void>;
   updatePriceListItem: (listId: string, productId: string, rate: number, uom: string, boxPcs: 'Box' | 'Pcs') => void;
   schemeLists: SchemeList[];
   addSchemeList: (schemeList: SchemeList) => void;
@@ -960,6 +962,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Prices and Schemes updating
+  const refreshPriceLists = useCallback(async () => {
+    try {
+      const data = await priceListService.getPriceLists();
+      if (data && data.length > 0) {
+        setPriceLists(data);
+      }
+    } catch {
+      // Retain existing state if unauthenticated or offline
+    }
+  }, []);
+
   const updatePriceListItem = (listId: string, productId: string, rate: number, uom: string, boxPcs: 'Box' | 'Pcs') => {
     setPriceLists((prev) =>
       prev.map((pl) => {
@@ -1232,6 +1245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatePassword,
 
         priceLists,
+        refreshPriceLists,
         updatePriceListItem,
         schemeLists,
         addSchemeList,

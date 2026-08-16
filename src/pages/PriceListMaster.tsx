@@ -1,23 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { PriceList, PriceListItem } from '../types';
+import { PriceList, PriceListItem, Product } from '../types';
+import { priceListService } from '../services/priceListService';
+import { productService } from '../services/productService';
 import {
   Coins,
   Edit2,
   Check,
   X,
   Search,
-  ArrowRightLeft,
-  ChevronDown,
-  Percent
+  Loader2,
+  RefreshCw,
+  Plus,
+  SlidersHorizontal,
+  Power
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const PriceListMaster: React.FC = () => {
-  const { priceLists, products, updatePriceListItem } = useApp();
+  const { priceLists: contextPriceLists, products: contextProducts, updatePriceListItem, currentUser } = useApp();
 
-  const [activeListId, setActiveListId] = useState('PL-STANDARD');
+  const [priceLists, setPriceLists] = useState<PriceList[]>(contextPriceLists || []);
+  const [products, setProducts] = useState<Product[]>(contextProducts || []);
+  const [activeListId, setActiveListId] = useState<string>('PL-STANDARD');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Row edit states
   const [editingRowProductId, setEditingRowProductId] = useState<string | null>(null);
@@ -25,10 +33,47 @@ export const PriceListMaster: React.FC = () => {
   const [editUom, setEditUom] = useState<string>('Pcs');
   const [editBoxPcs, setEditBoxPcs] = useState<'Box' | 'Pcs'>('Pcs');
 
-  const selectedPriceList = priceLists.find((pl) => pl.id === activeListId);
+  // Load Price Lists and Products from MySQL Backend
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [fetchedPriceLists, fetchedProducts] = await Promise.allSettled([
+        priceListService.getPriceLists(),
+        productService.getProducts(),
+      ]);
+
+      if (fetchedPriceLists.status === 'fulfilled' && fetchedPriceLists.value.length > 0) {
+        setPriceLists(fetchedPriceLists.value);
+        // Ensure activeListId points to a valid price list
+        if (!fetchedPriceLists.value.some((pl) => pl.id === activeListId || pl.code === activeListId)) {
+          setActiveListId(fetchedPriceLists.value[0].code || fetchedPriceLists.value[0].id);
+        }
+      } else if (contextPriceLists && contextPriceLists.length > 0) {
+        setPriceLists(contextPriceLists);
+      }
+
+      if (fetchedProducts.status === 'fulfilled' && fetchedProducts.value.length > 0) {
+        setProducts(fetchedProducts.value);
+      } else if (contextProducts && contextProducts.length > 0) {
+        setProducts(contextProducts);
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setIsLoading(false);
+    }
+  }, [contextPriceLists, contextProducts, activeListId]);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const selectedPriceList = priceLists.find(
+    (pl) => pl.id === activeListId || pl.code === activeListId || String(pl.numericId) === activeListId
+  ) || priceLists[0];
 
   // Trigger inline row edit
-  const handleStartEdit = (item: PriceListItem) => {
+  const handleStartEdit = (item: { productId: string; rate: number; uom: string; boxPcs: 'Box' | 'Pcs' }) => {
     setEditingRowProductId(item.productId);
     setEditRate(item.rate);
     setEditUom(item.uom);
@@ -39,67 +84,135 @@ export const PriceListMaster: React.FC = () => {
     setEditingRowProductId(null);
   };
 
-  const handleSaveEdit = (productId: string) => {
+  const handleSaveEdit = async (productId: string) => {
     if (editRate <= 0) {
       toast.error('Rate must be greater than zero.');
       return;
     }
-    updatePriceListItem(activeListId, productId, editRate, editUom, editBoxPcs);
-    setEditingRowProductId(null);
-    toast.success('Price rate updated successfully!');
+
+    setIsSaving(true);
+    try {
+      const targetPlId = selectedPriceList?.code || selectedPriceList?.id || activeListId;
+      const updated = await priceListService.updateItemRate(
+        targetPlId,
+        productId,
+        editRate,
+        editUom,
+        editBoxPcs
+      );
+
+      // Update local state
+      setPriceLists((prev) =>
+        prev.map((pl) => (pl.id === updated.id || pl.code === updated.code ? updated : pl))
+      );
+
+      // Also update context for backward compatibility
+      updatePriceListItem(targetPlId, productId, editRate, editUom, editBoxPcs);
+
+      setEditingRowProductId(null);
+      toast.success('Price rate updated successfully in database!');
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to update price rate';
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Toggle active / inactive status of current price list
+  const handleToggleStatus = async () => {
+    if (!selectedPriceList) return;
+    const newStatus = !selectedPriceList.isActive;
+    setIsSaving(true);
+    try {
+      const targetId = selectedPriceList.code || selectedPriceList.id;
+      const updated = await priceListService.updateStatus(targetId, newStatus);
+      setPriceLists((prev) =>
+        prev.map((pl) => (pl.id === updated.id || pl.code === updated.code ? updated : pl))
+      );
+      toast.success(`Price list marked as ${newStatus ? 'Active' : 'Inactive'}.`);
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to update status';
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Combine items to ensure all products appear even if not yet fully declared in the list item
-  const displayItems = products.map((product) => {
-    // Find item in active list
-    const listItem = selectedPriceList?.items.find((i) => i.productId === product.id);
-    return {
-      productId: product.id,
-      productName: product.description,
-      category: product.category,
-      group: product.group,
-      rate: listItem ? listItem.rate : product.rate,
-      uom: listItem ? listItem.uom : product.baseUom,
-      boxPcs: listItem ? listItem.boxPcs : 'Box',
-    };
-  }).filter((item) => {
-    return (
-      item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.productId.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const displayItems = products
+    .map((product) => {
+      // Find item in active list
+      const listItem = selectedPriceList?.items.find(
+        (i) => i.productId === product.id || i.productId === product.materialCode || i.materialCode === product.materialCode
+      );
+      return {
+        productId: product.materialCode || product.id,
+        productName: product.description,
+        category: product.category,
+        group: product.group,
+        rate: listItem ? listItem.rate : product.baseRate || product.rate,
+        uom: listItem ? listItem.uom : product.baseUom,
+        boxPcs: (listItem ? listItem.boxPcs : (product.baseUom?.toLowerCase().includes('box') ? 'Box' : 'Pcs')) as 'Box' | 'Pcs',
+      };
+    })
+    .filter((item) => {
+      return (
+        item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.productId.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
 
   return (
     <div className="space-y-6" id="price-list-master-section">
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display font-bold text-slate-900 text-2xl tracking-tight">
+          <h1 className="font-display font-bold text-slate-900 text-2xl tracking-tight flex items-center gap-2">
             Base Pricing Matrices
+            {isLoading && <Loader2 className="w-5 h-5 animate-spin text-brand-600" />}
           </h1>
           <p className="text-slate-500 text-sm">
-            Configure price levels, wholesale tiers, and alternate unit rules for live dispatch orders.
+            Database-backed price levels, wholesale tiers, and alternate unit rules for live dispatch orders.
           </p>
         </div>
 
-        {/* Price list template selector */}
-        <div className="flex items-center gap-2 bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
-          {priceLists.map((pl) => (
-            <button
-              key={pl.id}
-              onClick={() => {
-                setActiveListId(pl.id);
-                setEditingRowProductId(null);
-              }}
-              className={`text-xs px-4 py-2 rounded-lg font-bold transition-all ${
-                activeListId === pl.id
-                  ? 'bg-brand-600 text-white shadow'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {pl.name}
-            </button>
-          ))}
+        {/* Price list template selector and controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
+            {priceLists.map((pl) => (
+              <button
+                key={pl.id}
+                onClick={() => {
+                  setActiveListId(pl.code || pl.id);
+                  setEditingRowProductId(null);
+                }}
+                id={`btn-select-pricelist-${pl.id}`}
+                className={`text-xs px-3.5 py-2 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                  activeListId === pl.id || activeListId === pl.code
+                    ? 'bg-brand-600 text-white shadow'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {pl.name}
+                {!pl.isActive && (
+                  <span className="text-[9px] px-1.5 py-0.2 bg-red-100 text-red-700 rounded font-semibold">
+                    Inactive
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-brand-600 rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+            title="Refresh Price Lists"
+            id="btn-refresh-price-lists"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
@@ -111,17 +224,34 @@ export const PriceListMaster: React.FC = () => {
           </span>
           <input
             type="text"
-            placeholder="Search price matrix by item..."
+            placeholder="Search price matrix by material code or product name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             id="price-search-input"
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none focus:border-brand-500 text-sm transition-all"
           />
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[11px] font-bold text-slate-500 bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-            <Coins className="h-4 w-4" /> Editing Enabled
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+            <Coins className="h-4 w-4" /> Real-time MySQL Sync
           </span>
+
+          {selectedPriceList && (
+            <button
+              onClick={handleToggleStatus}
+              disabled={isSaving}
+              id="btn-toggle-active-status"
+              className={`text-xs px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all ${
+                selectedPriceList.isActive
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              <Power className="w-3.5 h-3.5" />
+              {selectedPriceList.isActive ? 'Deactivate Tier' : 'Activate Tier'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -132,8 +262,8 @@ export const PriceListMaster: React.FC = () => {
           <table className="w-full text-left border-collapse" id="price-list-master-table">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                <th className="px-6 py-4">Product ID</th>
-                <th className="px-6 py-4">Product Name</th>
+                <th className="px-6 py-4">Product ID / Code</th>
+                <th className="px-6 py-4">Product Description</th>
                 <th className="px-6 py-4">Category</th>
                 <th className="px-6 py-4 text-right">Applicable Rate (₹)</th>
                 <th className="px-6 py-4 text-center">Config UOM</th>
@@ -145,7 +275,7 @@ export const PriceListMaster: React.FC = () => {
               {displayItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
-                    No active product catalog mappings. Create products first.
+                    No active product catalog mappings found.
                   </td>
                 </tr>
               ) : (
@@ -180,11 +310,11 @@ export const PriceListMaster: React.FC = () => {
                               value={editRate}
                               onChange={(e) => setEditRate(Number(e.target.value))}
                               id={`input-rate-${item.productId}`}
-                              className="w-full pl-6 pr-2 py-1.5 bg-white border border-brand-500 rounded-lg text-xs font-bold text-slate-900 focus:outline-none"
+                              className="w-full pl-6 pr-2 py-1.5 bg-white border border-brand-500 rounded-lg text-xs font-bold text-slate-900 focus:outline-none shadow-sm"
                             />
                           </div>
                         ) : (
-                          `₹${item.rate.toFixed(2)}`
+                          `₹${Number(item.rate).toFixed(2)}`
                         )}
                       </td>
                       {/* Config UOM Column */}
@@ -193,7 +323,7 @@ export const PriceListMaster: React.FC = () => {
                           <select
                             value={editUom}
                             onChange={(e) => setEditUom(e.target.value)}
-                            className="bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs focus:outline-none focus:border-brand-500 font-semibold"
+                            className="bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs focus:outline-none focus:border-brand-500 font-semibold shadow-sm"
                           >
                             <option value="Box">Box</option>
                             <option value="Pcs">Pcs</option>
@@ -234,24 +364,26 @@ export const PriceListMaster: React.FC = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => handleSaveEdit(item.productId)}
-                              className="p-1 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition-all"
-                              title="Save Rates"
+                              disabled={isSaving}
+                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition-all disabled:opacity-50"
+                              title="Save Rates to Database"
                               id={`btn-save-inline-${item.productId}`}
                             >
-                              <Check className="h-4.5 w-4.5" />
+                              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                             </button>
                             <button
                               onClick={handleCancelEdit}
-                              className="p-1 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200 transition-all"
+                              disabled={isSaving}
+                              className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200 transition-all"
                               title="Discard"
                               id={`btn-cancel-inline-${item.productId}`}
                             >
-                              <X className="h-4.5 w-4.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           </div>
                         ) : (
                           <button
-                            onClick={() => handleStartEdit(item as PriceListItem)}
+                            onClick={() => handleStartEdit(item)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 font-semibold transition-all text-[11px]"
                             id={`btn-edit-inline-${item.productId}`}
                           >
@@ -301,7 +433,7 @@ export const PriceListMaster: React.FC = () => {
                           />
                         </div>
                       ) : (
-                        <p className="text-sm font-extrabold text-slate-900">₹{item.rate.toFixed(2)}</p>
+                        <p className="text-sm font-extrabold text-slate-900">₹{Number(item.rate).toFixed(2)}</p>
                       )}
                       <span className="text-[10px] text-slate-500 font-medium block">/ {isEditing ? editUom : item.uom}</span>
                     </div>
@@ -316,13 +448,15 @@ export const PriceListMaster: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleSaveEdit(item.productId)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200"
+                          disabled={isSaving}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200 disabled:opacity-50"
                           id={`btn-save-mobile-${item.productId}`}
                         >
-                          <Check className="h-3.5 w-3.5" /> Save
+                          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
                         </button>
                         <button
                           onClick={handleCancelEdit}
+                          disabled={isSaving}
                           className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold text-xs"
                           id={`btn-cancel-mobile-${item.productId}`}
                         >
@@ -331,7 +465,7 @@ export const PriceListMaster: React.FC = () => {
                       </div>
                     ) : (
                       <button
-                        onClick={() => handleStartEdit(item as PriceListItem)}
+                        onClick={() => handleStartEdit(item)}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50"
                         id={`btn-edit-mobile-rate-${item.productId}`}
                       >

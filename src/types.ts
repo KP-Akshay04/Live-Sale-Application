@@ -79,7 +79,10 @@ export interface SalesOffice {
 }
 
 export interface PriceListItem {
+  id?: number;
   productId: string;
+  materialCode?: string;
+  productName?: string;
   rate: number;
   uom: string;
   boxPcs: 'Box' | 'Pcs';
@@ -87,7 +90,15 @@ export interface PriceListItem {
 
 export interface PriceList {
   id: string;
+  numericId?: number;
+  code?: string;
   name: string;
+  description?: string;
+  currency?: string;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive?: boolean;
+  itemCount?: number;
   items: PriceListItem[];
 }
 

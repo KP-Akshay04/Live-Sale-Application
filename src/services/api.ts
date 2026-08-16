@@ -29,27 +29,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      try {
-        // Prepare refresh token routing logic
-        const refreshToken = localStorage.getItem('live_sale_refresh_token');
-        if (refreshToken) {
-          // In a real application, call your /auth/refresh endpoint here
-          // const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-          // const newToken = res.data.token;
-          // localStorage.setItem('live_sale_jwt_token', newToken);
-          // originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          // return apiClient(originalRequest);
-        }
-      } catch (refreshError) {
-        // Refresh failed, logout user
-        localStorage.removeItem('live_sale_jwt_token');
-        localStorage.removeItem('live_sale_refresh_token');
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
+    if (error.response && error.response.status === 401) {
+      // Clear authenticated session data
+      localStorage.removeItem('live_sale_jwt_token');
+      localStorage.removeItem('live_sale_user');
+      localStorage.removeItem('live_sale_refresh_token');
     }
     return Promise.reject(error);
   }

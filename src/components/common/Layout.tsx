@@ -43,8 +43,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     notifications,
     markNotificationRead,
     clearNotifications,
-    users,
-    login,
     syncQueue,
     triggerSync,
     isSyncing
@@ -102,22 +100,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  // Quick Switcher to let reviewer test all 3 roles easily
-  const triggerRoleSwitch = async (roleName: string) => {
-    const targetUser = users.find((u) => u.role === roleName);
-    if (targetUser) {
-      await login(targetUser.username, 'adminpassword'); // default simulated password
-      navigate('/');
-    } else {
-      // Find any with that role
-      const fallbackUser = users.find((u) => u.role === roleName);
-      if (fallbackUser) {
-        await login(fallbackUser.username, 'depotpassword');
-        navigate('/');
-      }
-    }
   };
 
   // Configure Sidebar links based on role
@@ -362,24 +344,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Right: Quick Role-Switcher, Notifications, Profile Dropdown */}
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Live Role Switcher (Highly responsive demo tool) */}
-            <div className="hidden lg:flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+            {/* Authenticated Active Role Display */}
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200" id="navbar-role-display">
               <span className="text-[11px] font-semibold text-slate-500 px-2 flex items-center gap-1">
-                <Shuffle className="h-3 w-3" /> DEMO ROLE:
+                <Shuffle className="h-3 w-3" /> ROLE:
               </span>
-              {(['Super Admin', 'Depot Person', 'Sales Officer'] as Role[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => triggerRoleSwitch(r)}
-                  className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition-all ${
-                    currentUser.role === r
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
+              <span className="text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-brand-600 text-white shadow-xs">
+                {currentUser.role}
+              </span>
             </div>
 
             {/* Notification bell */}

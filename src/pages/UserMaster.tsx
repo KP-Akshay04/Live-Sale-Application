@@ -73,6 +73,7 @@ export const UserMaster: React.FC = () => {
     const payload: User = {
       employeeId,
       employeeName,
+      loginId: username.toLowerCase().trim(),
       username: username.toLowerCase().trim(),
       password,
       role,

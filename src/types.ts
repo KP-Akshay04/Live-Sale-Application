@@ -1,10 +1,16 @@
 export type Role = 'Super Admin' | 'Depot Person' | 'Sales Officer';
 
 export interface User {
+  userId?: number;
   employeeId: string;
   employeeName: string;
-  username: string;
+  loginId: string;
+  username: string; // mapped to loginId for backward compatibility
   role: Role;
+  roleCode?: string;
+  depotId?: number | null;
+  depotName?: string | null;
+  phone?: string | null;
   password?: string;
   isActive: boolean;
 }

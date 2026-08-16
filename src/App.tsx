@@ -21,8 +21,19 @@ import { Settings } from './pages/Settings';
 
 // Route Guard Component to handle auth redirects
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useApp();
+  const { currentUser, isLoading } = useApp();
   
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-9 w-9 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-400 tracking-wider">Validating session...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }

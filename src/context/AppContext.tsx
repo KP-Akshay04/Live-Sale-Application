@@ -15,6 +15,7 @@ import {
   SyncItem,
   LineSaleAccount,
 } from '../types';
+import { authApi, mapSafeUserToUser } from '../services/authApi';
 
 interface AppContextType {
   // Auth state
@@ -273,6 +274,7 @@ const INITIAL_USERS: User[] = [
   {
     employeeId: 'EMP-001',
     employeeName: 'Rajesh Kumar',
+    loginId: 'admin',
     username: 'admin',
     password: 'adminpassword',
     role: 'Super Admin',
@@ -281,6 +283,7 @@ const INITIAL_USERS: User[] = [
   {
     employeeId: 'EMP-002',
     employeeName: 'Suresh Gowda',
+    loginId: 'depot',
     username: 'depot',
     password: 'depotpassword',
     role: 'Depot Person',
@@ -289,6 +292,7 @@ const INITIAL_USERS: User[] = [
   {
     employeeId: 'EMP-003',
     employeeName: 'Ananth Hegde',
+    loginId: 'sales',
     username: 'sales',
     password: 'salespassword',
     role: 'Sales Officer',
@@ -297,6 +301,7 @@ const INITIAL_USERS: User[] = [
   {
     employeeId: 'EMP-004',
     employeeName: 'Vikram Singh',
+    loginId: 'mysoredepot',
     username: 'mysoredepot',
     password: 'depotpassword',
     role: 'Depot Person',
@@ -305,6 +310,7 @@ const INITIAL_USERS: User[] = [
   {
     employeeId: 'EMP-005',
     employeeName: 'Nisha Pillai',
+    loginId: 'sales_officer_two',
     username: 'sales_officer_two',
     password: 'salespassword',
     role: 'Sales Officer',
@@ -588,40 +594,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [syncQueue, setSyncQueue] = useState<SyncItem[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Load state from localStorage on init
+  // Load state and restore backend session on init
   useEffect(() => {
-    const localUser = localStorage.getItem('live_sale_user');
-    const localToken = localStorage.getItem('live_sale_jwt_token');
+    let isMounted = true;
 
-    if (localUser && localToken) {
-      setCurrentUser(JSON.parse(localUser));
-      setJwtToken(localToken);
-    }
-
-    const loadState = <T,>(key: string, initial: T, setter: React.Dispatch<React.SetStateAction<T>>) => {
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        setter(JSON.parse(stored));
+    const restoreSession = async () => {
+      const storedToken = localStorage.getItem('live_sale_jwt_token');
+      if (storedToken) {
+        try {
+          // Authoritative verification with backend GET /api/auth/me
+          const safeUser = await authApi.getMe();
+          if (isMounted && safeUser) {
+            const restoredUser = mapSafeUserToUser(safeUser);
+            setCurrentUser(restoredUser);
+            setJwtToken(storedToken);
+            localStorage.setItem('live_sale_user', JSON.stringify(restoredUser));
+          }
+        } catch (error) {
+          console.warn('[Auth] Stored session invalid or expired:', error);
+          if (isMounted) {
+            setCurrentUser(null);
+            setJwtToken(null);
+            localStorage.removeItem('live_sale_jwt_token');
+            localStorage.removeItem('live_sale_user');
+            localStorage.removeItem('live_sale_refresh_token');
+          }
+        }
       } else {
-        setter(initial);
-        localStorage.setItem(key, JSON.stringify(initial));
+        setCurrentUser(null);
+        setJwtToken(null);
+        localStorage.removeItem('live_sale_user');
+      }
+
+      const loadState = <T,>(key: string, initial: T, setter: React.Dispatch<React.SetStateAction<T>>) => {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            setter(JSON.parse(stored));
+          } catch {
+            setter(initial);
+          }
+        } else {
+          setter(initial);
+          localStorage.setItem(key, JSON.stringify(initial));
+        }
+      };
+
+      loadState('live_sale_products', INITIAL_PRODUCTS, setProducts);
+      loadState('live_sale_line_sale_accounts', INITIAL_LINE_SALE_ACCOUNTS, setLineSaleAccounts);
+      loadState('live_sale_depots', INITIAL_DEPOTS, setDepots);
+      loadState('live_sale_sales_offices', INITIAL_SALES_OFFICES, setSalesOffices);
+      loadState('live_sale_users', INITIAL_USERS, setUsers);
+      loadState('live_sale_price_lists', INITIAL_PRICE_LISTS, setPriceLists);
+      loadState('live_sale_scheme_lists', INITIAL_SCHEME_LISTS, setSchemeLists);
+      loadState('live_sale_goods_issues', INITIAL_GOODS_ISSUES, setGoodsIssues);
+      loadState('live_sale_goods_returns', INITIAL_GOODS_RETURNS, setGoodsReturns);
+      loadState('live_sale_sales_entries', INITIAL_SALES_ENTRIES, setSalesEntries);
+      loadState('live_sale_notifications', INITIAL_NOTIFICATIONS, setNotifications);
+      loadState('live_sale_sync_queue', [], setSyncQueue);
+
+      if (isMounted) {
+        setIsLoading(false);
       }
     };
 
-    loadState('live_sale_products', INITIAL_PRODUCTS, setProducts);
-    loadState('live_sale_line_sale_accounts', INITIAL_LINE_SALE_ACCOUNTS, setLineSaleAccounts);
-    loadState('live_sale_depots', INITIAL_DEPOTS, setDepots);
-    loadState('live_sale_sales_offices', INITIAL_SALES_OFFICES, setSalesOffices);
-    loadState('live_sale_users', INITIAL_USERS, setUsers);
-    loadState('live_sale_price_lists', INITIAL_PRICE_LISTS, setPriceLists);
-    loadState('live_sale_scheme_lists', INITIAL_SCHEME_LISTS, setSchemeLists);
-    loadState('live_sale_goods_issues', INITIAL_GOODS_ISSUES, setGoodsIssues);
-    loadState('live_sale_goods_returns', INITIAL_GOODS_RETURNS, setGoodsReturns);
-    loadState('live_sale_sales_entries', INITIAL_SALES_ENTRIES, setSalesEntries);
-    loadState('live_sale_notifications', INITIAL_NOTIFICATIONS, setNotifications);
-    loadState('live_sale_sync_queue', [], setSyncQueue);
+    restoreSession();
 
-    setIsLoading(false);
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Sync back to localStorage on change
@@ -733,38 +774,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser, products, goodsIssues, goodsReturns, salesEntries]);
 
   // Auth Action Creators
-  const login = async (username: string, password: string): Promise<boolean> => {
-    // Artificial ERP API latency
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    const foundUser = users.find(
-      (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-    );
-
-    if (foundUser && foundUser.isActive) {
-      const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mockToken';
-      setCurrentUser(foundUser);
-      setJwtToken(mockToken);
-      localStorage.setItem('live_sale_user', JSON.stringify(foundUser));
-      localStorage.setItem('live_sale_jwt_token', mockToken);
-      localStorage.setItem('live_sale_refresh_token', 'mock_refresh_token_xyz');
-      addNotification(
-        'Login Successful',
-        `Welcome back ${foundUser.employeeName}. Logged in as ${foundUser.role}.`,
-        'success'
-      );
-      return true;
+  const login = async (loginId: string, password: string): Promise<boolean> => {
+    try {
+      const response = await authApi.login(loginId.trim(), password);
+      if (response && response.token && response.user) {
+        const authenticatedUser = mapSafeUserToUser(response.user);
+        setCurrentUser(authenticatedUser);
+        setJwtToken(response.token);
+        localStorage.setItem('live_sale_jwt_token', response.token);
+        localStorage.setItem('live_sale_user', JSON.stringify(authenticatedUser));
+        addNotification(
+          'Login Successful',
+          `Welcome back ${authenticatedUser.employeeName}. Logged in as ${authenticatedUser.role}.`,
+          'success'
+        );
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('[Auth Error] Backend login failed:', error?.response?.data || error.message);
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    setJwtToken(null);
-    localStorage.removeItem('live_sale_user');
-    localStorage.removeItem('live_sale_jwt_token');
-    localStorage.removeItem('live_sale_refresh_token');
-    addNotification('Logged Out', 'Successfully logged out of the system.', 'info');
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.warn('[Auth] Remote logout notification failed:', err);
+    } finally {
+      setCurrentUser(null);
+      setJwtToken(null);
+      localStorage.removeItem('live_sale_user');
+      localStorage.removeItem('live_sale_jwt_token');
+      localStorage.removeItem('live_sale_refresh_token');
+      addNotification('Logged Out', 'Successfully logged out of the system.', 'info');
+    }
   };
 
   // CRUD Line Sale Master

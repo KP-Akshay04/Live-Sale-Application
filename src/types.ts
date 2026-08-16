@@ -30,8 +30,14 @@ export interface Product {
 }
 
 export interface Depot {
+  id?: number;
+  depotId?: number;
+  code?: string;
+  depotCode?: string;
   siteName: string;
+  name?: string;
   description: string;
+  location?: string;
   address: string;
   addressLine2?: string;
   city: string;
@@ -40,9 +46,17 @@ export interface Depot {
   pin: string;
   gst: string;
   contactNumber: string;
+  phone?: string;
   salesTag: string;
+  sapPlantCode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  allowedRadius?: number | null;
+  isActive?: boolean;
   assignedUser: string; // Username of Depot Person / Depot Manager
   assignedLines?: string[]; // Array of assigned Line Sale Master partyCodes
+  userCount?: number;
+  lineSaleCount?: number;
 }
 
 export interface SalesOffice {

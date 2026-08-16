@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   Role,
   User,
@@ -16,6 +16,7 @@ import {
   LineSaleAccount,
 } from '../types';
 import { authApi, mapSafeUserToUser } from '../services/authApi';
+import { depotService } from '../services/depotService';
 
 interface AppContextType {
   // Auth state
@@ -40,6 +41,7 @@ interface AppContextType {
   addDepot: (depot: Depot) => void;
   updateDepot: (depot: Depot) => void;
   deleteDepot: (siteName: string) => void;
+  refreshDepots: () => Promise<void>;
 
   salesOffices: SalesOffice[];
   addSalesOffice: (office: SalesOffice) => void;
@@ -873,6 +875,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // CRUD Depot Master
+  const refreshDepots = useCallback(async () => {
+    try {
+      const data = await depotService.getDepots();
+      if (data && data.length > 0) {
+        setDepots(data);
+      }
+    } catch {
+      // Retain existing state if unauthenticated or offline
+    }
+  }, []);
+
   const addDepot = (depot: Depot) => {
     setDepots((prev) => [...prev, depot]);
     addNotification('Depot Registered', `Depot ${depot.siteName} created in system.`, 'success');
@@ -1186,6 +1199,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addDepot,
         updateDepot,
         deleteDepot,
+        refreshDepots,
 
         salesOffices,
         addSalesOffice,

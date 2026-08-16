@@ -17,6 +17,8 @@ export interface User {
 
 export interface Product {
   id: string;
+  productId?: number;
+  materialCode?: string;
   description: string;
   additionalName: string;
   category: string;
@@ -24,9 +26,12 @@ export interface Product {
   hsnCode: string;
   barcode: string;
   gstRate: number; // e.g., 18 for 18%
+  taxRate?: number;
   baseUom: string; // e.g., "Box", "Pcs"
   alternativeQty: number; // Qty per box
   rate: number;
+  baseRate?: number;
+  isActive?: boolean;
 }
 
 export interface Depot {

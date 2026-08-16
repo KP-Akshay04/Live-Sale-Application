@@ -17,6 +17,7 @@ import {
 } from '../types';
 import { authApi, mapSafeUserToUser } from '../services/authApi';
 import { depotService } from '../services/depotService';
+import { productService } from '../services/productService';
 
 interface AppContextType {
   // Auth state
@@ -31,6 +32,7 @@ interface AppContextType {
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
+  refreshProducts: () => Promise<void>;
 
   lineSaleAccounts: LineSaleAccount[];
   addLineSaleAccount: (account: LineSaleAccount) => void;
@@ -830,6 +832,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // CRUD Product Master
+  const refreshProducts = useCallback(async () => {
+    try {
+      const data = await productService.getProducts();
+      if (data && data.length > 0) {
+        setProducts(data);
+      }
+    } catch {
+      // Retain existing state if unauthenticated or offline
+    }
+  }, []);
+
   const addProduct = (product: Product) => {
     setProducts((prev) => [product, ...prev]);
     // Create in default Price List and Scheme Lists as well
@@ -1194,6 +1207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addProduct,
         updateProduct,
         deleteProduct,
+        refreshProducts,
 
         depots,
         addDepot,

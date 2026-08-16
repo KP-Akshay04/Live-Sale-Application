@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { SchemeList, SchemeListItem } from '../types';
+import { SchemeList, SchemeListItem, Product } from '../types';
+import { schemeListService } from '../services/schemeListService';
+import { productService } from '../services/productService';
 import { Modal } from '../components/common/Modal';
 import {
   TicketPercent,
@@ -9,14 +11,20 @@ import {
   Trash2,
   Package,
   Eye,
-  Tag
+  Tag,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const SchemeListMaster: React.FC = () => {
-  const { schemeLists, products, addSchemeList, deleteSchemeList } = useApp();
+  const { schemeLists: contextSchemeLists, products: contextProducts, addSchemeList, deleteSchemeList } = useApp();
 
+  const [schemeLists, setSchemeLists] = useState<SchemeList[]>(contextSchemeLists || []);
+  const [products, setProducts] = useState<Product[]>(contextProducts || []);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Add Scheme Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -30,6 +38,37 @@ export const SchemeListMaster: React.FC = () => {
 
   // Delete Scheme Confirmation state
   const [schemeToDelete, setSchemeToDelete] = useState<SchemeList | null>(null);
+
+  // Load Scheme Lists and Products from MySQL Backend
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [fetchedSchemes, fetchedProducts] = await Promise.allSettled([
+        schemeListService.getSchemeLists(),
+        productService.getProducts(),
+      ]);
+
+      if (fetchedSchemes.status === 'fulfilled' && fetchedSchemes.value.length > 0) {
+        setSchemeLists(fetchedSchemes.value);
+      } else if (contextSchemeLists && contextSchemeLists.length > 0) {
+        setSchemeLists(contextSchemeLists);
+      }
+
+      if (fetchedProducts.status === 'fulfilled' && fetchedProducts.value.length > 0) {
+        setProducts(fetchedProducts.value);
+      } else if (contextProducts && contextProducts.length > 0) {
+        setProducts(contextProducts);
+      }
+    } catch {
+      // Fallback to existing context state
+    } finally {
+      setIsLoading(false);
+    }
+  }, [contextSchemeLists, contextProducts]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Initialize new scheme dialog with 0 rows
   const handleOpenAddModal = () => {
@@ -77,7 +116,7 @@ export const SchemeListMaster: React.FC = () => {
     );
   };
 
-  const handleCreateSchemeSubmit = (e: React.FormEvent) => {
+  const handleCreateSchemeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSchemeId.trim()) {
       toast.error('Scheme ID is required.');
@@ -93,39 +132,77 @@ export const SchemeListMaster: React.FC = () => {
     }
 
     const cleanId = newSchemeId.trim().toUpperCase();
-    if (schemeLists.some((s) => s.id.toUpperCase() === cleanId)) {
+    if (schemeLists.some((s) => (s.code || s.id).toUpperCase() === cleanId)) {
       toast.error(`Scheme ID "${cleanId}" already exists.`);
       return;
     }
 
-    const createdScheme: SchemeList = {
-      id: cleanId,
-      name: newSchemeName.trim(),
-      items: newSchemeItems,
-    };
+    // Check duplicate products within items
+    const prodIds = newSchemeItems.map((it) => it.productId);
+    const hasDups = new Set(prodIds).size !== prodIds.length;
+    if (hasDups) {
+      toast.error('Duplicate products selected in scheme items. Each product must be added at most once.');
+      return;
+    }
 
-    addSchemeList(createdScheme);
-    setIsAddModalOpen(false);
-    toast.success(`Promotional scheme "${createdScheme.name}" created successfully!`);
+    setIsSaving(true);
+    try {
+      const payload = {
+        code: cleanId,
+        name: newSchemeName.trim(),
+        schemeType: 'QTY_FREE',
+        items: newSchemeItems.map((it) => ({
+          productId: it.productId,
+          minQty: it.buyQty,
+          buyQty: it.buyQty,
+          freeQty: it.freeQty,
+          discountAmount: it.rate,
+          rate: it.rate,
+          uom: it.uom,
+          boxPcs: it.boxPcs,
+        })),
+      };
+
+      const created = await schemeListService.createSchemeList(payload);
+
+      setSchemeLists((prev) => [created, ...prev]);
+      addSchemeList(created);
+      setIsAddModalOpen(false);
+      toast.success(`Promotional scheme "${created.name}" created successfully!`);
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to create promotional scheme';
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteScheme = (scheme: SchemeList) => {
     setSchemeToDelete(scheme);
   };
 
-  const confirmDeleteScheme = () => {
-    if (schemeToDelete) {
-      try {
-        deleteSchemeList(schemeToDelete.id);
-        toast.success(`Scheme "${schemeToDelete.name}" (${schemeToDelete.id}) deleted.`);
-        if (viewScheme?.id === schemeToDelete.id) {
-          setViewScheme(null);
-          setIsViewModalOpen(false);
-        }
-        setSchemeToDelete(null);
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to delete scheme.');
+  const confirmDeleteScheme = async () => {
+    if (!schemeToDelete) return;
+
+    setIsSaving(true);
+    try {
+      const targetId = schemeToDelete.code || schemeToDelete.id;
+      await schemeListService.deleteSchemeList(targetId);
+
+      setSchemeLists((prev) => prev.filter((s) => s.id !== schemeToDelete.id && s.code !== schemeToDelete.id));
+      deleteSchemeList(schemeToDelete.id);
+
+      toast.success(`Scheme "${schemeToDelete.name}" (${schemeToDelete.id}) deleted.`);
+      if (viewScheme?.id === schemeToDelete.id || viewScheme?.code === schemeToDelete.id) {
+        setViewScheme(null);
+        setIsViewModalOpen(false);
       }
+      setSchemeToDelete(null);
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to delete scheme';
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -138,7 +215,7 @@ export const SchemeListMaster: React.FC = () => {
   const filteredSchemes = schemeLists.filter(
     (s) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.id.toLowerCase().includes(searchTerm.toLowerCase())
+      (s.code || s.id).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -154,13 +231,24 @@ export const SchemeListMaster: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
-          id="btn-add-scheme-master"
-        >
-          <Plus className="h-4 w-4" /> Create Scheme
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="p-2 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-xl border border-slate-200 transition-all"
+            title="Refresh Scheme Lists"
+            id="btn-refresh-schemes"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
+          </button>
+          <button
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
+            id="btn-add-scheme-master"
+          >
+            <Plus className="h-4 w-4" /> Create Scheme
+          </button>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}
@@ -198,7 +286,14 @@ export const SchemeListMaster: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-600">
-              {filteredSchemes.length === 0 ? (
+              {isLoading && schemeLists.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-12 text-slate-400">
+                    <Loader2 className="h-6 w-6 animate-spin text-brand-600 mx-auto mb-2" />
+                    Loading promotional schemes from database...
+                  </td>
+                </tr>
+              ) : filteredSchemes.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="text-center py-12 text-slate-400">
                     No schemes found matching "{searchTerm}".
@@ -206,21 +301,21 @@ export const SchemeListMaster: React.FC = () => {
                 </tr>
               ) : (
                 filteredSchemes.map((scheme) => (
-                  <tr key={scheme.id} className="hover:bg-slate-50/60 transition-colors">
+                  <tr key={scheme.id || scheme.code} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-brand-600">
-                      {scheme.id}
+                      {scheme.code || scheme.id}
                     </td>
                     <td className="px-6 py-4 font-semibold text-slate-900">
                       <div>
                         <p className="text-sm text-slate-800">{scheme.name}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                          {scheme.items.length} items configured in deal structure
+                          {(scheme.items || []).length} items configured in deal structure
                         </p>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px]">
-                        <Package className="h-3 w-3 text-slate-500" /> {scheme.items.length} Products
+                        <Package className="h-3 w-3 text-slate-500" /> {(scheme.items || []).length} Products
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -228,7 +323,7 @@ export const SchemeListMaster: React.FC = () => {
                         <button
                           onClick={() => handleOpenViewModal(scheme)}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs border border-brand-200 transition-all"
-                          id={`btn-view-scheme-${scheme.id}`}
+                          id={`btn-view-scheme-${scheme.code || scheme.id}`}
                         >
                           <Eye className="h-3.5 w-3.5" /> View
                         </button>
@@ -236,8 +331,8 @@ export const SchemeListMaster: React.FC = () => {
                         <button
                           onClick={() => handleDeleteScheme(scheme)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100"
-                          title={`Delete Scheme ${scheme.id}`}
-                          id={`btn-delete-scheme-${scheme.id}`}
+                          title={`Delete Scheme ${scheme.code || scheme.id}`}
+                          id={`btn-delete-scheme-${scheme.code || scheme.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -427,17 +522,25 @@ export const SchemeListMaster: React.FC = () => {
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
+              disabled={isSaving}
               onClick={() => setIsAddModalOpen(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition-colors"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
+              disabled={isSaving}
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all flex items-center gap-1.5 disabled:opacity-50"
               id="btn-save-created-scheme"
             >
-              Save Promotional Scheme
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
+                </>
+              ) : (
+                'Save Promotional Scheme'
+              )}
             </button>
           </div>
         </form>
@@ -455,7 +558,7 @@ export const SchemeListMaster: React.FC = () => {
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 grid grid-cols-2 gap-2 text-xs">
               <div>
                 <p className="text-slate-400 font-medium">Scheme Code / ID:</p>
-                <p className="font-mono font-bold text-brand-600 text-sm">{viewScheme.id}</p>
+                <p className="font-mono font-bold text-brand-600 text-sm">{viewScheme.code || viewScheme.id}</p>
               </div>
               <div>
                 <p className="text-slate-400 font-medium">Scheme Name:</p>
@@ -478,13 +581,14 @@ export const SchemeListMaster: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {viewScheme.items.map((item, idx) => {
-                    const productObj = products.find((p) => p.id === item.productId);
+                  {(viewScheme.items || []).map((item, idx) => {
+                    const productObj = products.find((p) => p.id === item.productId || p.materialCode === item.productId);
+                    const displayRate = Number(item.rate ?? 0);
                     return (
                       <tr key={idx} className="hover:bg-slate-50/50">
                         <td className="p-3 font-mono font-bold text-slate-800">{item.productId}</td>
-                        <td className="p-3 font-semibold text-slate-800">{productObj?.description || item.productId}</td>
-                        <td className="p-3 text-right font-bold text-slate-900">₹{item.rate.toFixed(2)}</td>
+                        <td className="p-3 font-semibold text-slate-800">{productObj?.description || item.productName || item.productId}</td>
+                        <td className="p-3 text-right font-bold text-slate-900">₹{displayRate.toFixed(2)}</td>
                         <td className="p-3 text-center font-medium">{item.uom}</td>
                         <td className="p-3 text-center font-medium">{item.boxPcs}</td>
                         <td className="p-3 text-center font-bold text-slate-800">{item.buyQty}</td>
@@ -528,26 +632,34 @@ export const SchemeListMaster: React.FC = () => {
         >
           <div className="space-y-4" id="delete-scheme-confirmation-dialog">
             <p className="text-slate-600 text-xs">
-              Are you sure you want to delete promotional scheme <strong className="text-slate-900">{schemeToDelete.name}</strong> (<span className="font-mono font-bold text-brand-600">{schemeToDelete.id}</span>)?
+              Are you sure you want to delete promotional scheme <strong className="text-slate-900">{schemeToDelete.name}</strong> (<span className="font-mono font-bold text-brand-600">{schemeToDelete.code || schemeToDelete.id}</span>)?
             </p>
             <p className="text-slate-500 text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-              This action will permanently remove this scheme and all of its {schemeToDelete.items.length} configured product item deal structure(s).
+              This action will permanently remove this scheme and all of its {(schemeToDelete.items || []).length} configured product item deal structure(s).
             </p>
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => setSchemeToDelete(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 id="btn-confirm-delete-scheme"
+                disabled={isSaving}
                 onClick={confirmDeleteScheme}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs shadow-md shadow-red-600/10 active:scale-[0.98] transition-all"
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs shadow-md shadow-red-600/10 active:scale-[0.98] transition-all flex items-center gap-1.5 disabled:opacity-50"
               >
-                Delete Scheme
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting...
+                  </>
+                ) : (
+                  'Delete Scheme'
+                )}
               </button>
             </div>
           </div>
@@ -558,4 +670,3 @@ export const SchemeListMaster: React.FC = () => {
 };
 
 export default SchemeListMaster;
-

@@ -19,6 +19,7 @@ import { authApi, mapSafeUserToUser } from '../services/authApi';
 import { depotService } from '../services/depotService';
 import { productService } from '../services/productService';
 import { priceListService } from '../services/priceListService';
+import { schemeListService } from '../services/schemeListService';
 
 interface AppContextType {
   // Auth state
@@ -62,6 +63,7 @@ interface AppContextType {
   refreshPriceLists: () => Promise<void>;
   updatePriceListItem: (listId: string, productId: string, rate: number, uom: string, boxPcs: 'Box' | 'Pcs') => void;
   schemeLists: SchemeList[];
+  refreshSchemeLists: () => Promise<void>;
   addSchemeList: (schemeList: SchemeList) => void;
   updateSchemeList: (schemeList: SchemeList) => void;
   deleteSchemeList: (id: string) => void;
@@ -973,6 +975,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const refreshSchemeLists = useCallback(async () => {
+    try {
+      const data = await schemeListService.getSchemeLists();
+      if (data && data.length > 0) {
+        setSchemeLists(data);
+      }
+    } catch {
+      // Retain existing state if unauthenticated or offline
+    }
+  }, []);
+
   const updatePriceListItem = (listId: string, productId: string, rate: number, uom: string, boxPcs: 'Box' | 'Pcs') => {
     setPriceLists((prev) =>
       prev.map((pl) => {
@@ -1248,6 +1261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshPriceLists,
         updatePriceListItem,
         schemeLists,
+        refreshSchemeLists,
         addSchemeList,
         updateSchemeList,
         deleteSchemeList,

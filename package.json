@@ -17,6 +17,7 @@
     "test:depot": "tsx backend/src/tests/depot.test.ts",
     "test:product": "tsx backend/src/tests/product.test.ts",
     "test:price-list": "tsx backend/src/tests/price-list.test.ts",
+    "test:scheme-list": "tsx backend/src/tests/scheme-list.test.ts",
     "prisma:generate": "prisma generate --schema=backend/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=backend/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=backend/prisma/schema.prisma",

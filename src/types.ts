@@ -103,17 +103,31 @@ export interface PriceList {
 }
 
 export interface SchemeListItem {
+  id?: number;
   productId: string;
+  materialCode?: string;
+  productName?: string;
   rate: number; // special rate or flat discount rate
   uom: string;
   boxPcs: 'Box' | 'Pcs';
   buyQty: number;
   freeQty: number;
+  minQty?: number;
+  discountPercent?: number;
+  discountAmount?: number;
 }
 
 export interface SchemeList {
   id: string;
+  numericId?: number;
+  code?: string;
   name: string;
+  description?: string;
+  schemeType?: string;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive?: boolean;
+  itemCount?: number;
   items: SchemeListItem[];
 }
 

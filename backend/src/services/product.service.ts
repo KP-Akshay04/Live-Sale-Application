@@ -31,6 +31,43 @@ export class ProductService {
   private memoryProducts: Map<number, any> = new Map();
   private nextMemoryId = 100;
 
+  constructor() {
+    this.initDefaultMemorySeeds();
+  }
+
+  private initDefaultMemorySeeds() {
+    const seed1 = {
+      id: 1,
+      materialCode: 'PROD-001',
+      description: 'Golden Leaf Premium Tea 250g',
+      additionalName: JSON.stringify({ shortName: 'Tea 250g', group: 'Beverages', barcode: '8901234567890', alternativeQty: 24 }),
+      category: 'Beverages',
+      baseUom: 'Box',
+      baseRate: 120.0,
+      hsnCode: '09024020',
+      taxRate: 5.0,
+      isActive: true,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date(),
+    };
+    const seed2 = {
+      id: 2,
+      materialCode: 'PROD-002',
+      description: 'Sparkling Orange Splash 500ml',
+      additionalName: JSON.stringify({ shortName: 'Orange 500ml', group: 'Beverages', barcode: '8901234567891', alternativeQty: 12 }),
+      category: 'Beverages',
+      baseUom: 'Pcs',
+      baseRate: 40.0,
+      hsnCode: '22021010',
+      taxRate: 12.0,
+      isActive: true,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date(),
+    };
+    this.memoryProducts.set(seed1.id, seed1);
+    this.memoryProducts.set(seed2.id, seed2);
+  }
+
   /**
    * Helper to safely serialize extra product metadata (group, barcode, alt qty, short name)
    * into the database `additional_name` field (VarChar 200).

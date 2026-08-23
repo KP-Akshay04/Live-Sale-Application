@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { LineSaleAccount, INDIAN_STATES } from '../types';
+import { lineSaleService } from '../services/lineSaleService';
 import { Modal } from '../components/common/Modal';
 import {
   Search,
@@ -20,7 +21,9 @@ import {
   Crosshair,
   ShieldAlert,
   Building,
-  RefreshCw
+  RefreshCw,
+  UserCheck,
+  Tag
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -31,6 +34,7 @@ export const LineSaleMaster: React.FC = () => {
     addLineSaleAccount,
     updateLineSaleAccount,
     toggleLineSaleAccountStatus,
+    refreshLineSaleAccounts,
     depots,
     schemeLists,
     priceLists,
@@ -62,6 +66,10 @@ export const LineSaleMaster: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // Loading and Submitting states
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'Add' | 'Edit'>('Add');
@@ -79,6 +87,9 @@ export const LineSaleMaster: React.FC = () => {
   const [schemeListId, setSchemeListId] = useState('');
   const [priceListId, setPriceListId] = useState('');
   const [assignedUser, setAssignedUser] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [routeName, setRouteName] = useState('');
+  const [sapCustomerCode, setSapCustomerCode] = useState('');
 
   // Auxiliary Modal States
   const [previewQrModal, setPreviewQrModal] = useState<{ isOpen: boolean; accountName: string; qrUrl: string }>({
@@ -94,6 +105,23 @@ export const LineSaleMaster: React.FC = () => {
 
   const [isGettingGps, setIsGettingGps] = useState(false);
 
+  // Load from backend on mount
+  useEffect(() => {
+    refreshLineSaleAccounts();
+  }, [refreshLineSaleAccounts]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshLineSaleAccounts();
+      toast.success('Line Sale accounts reloaded from database.');
+    } catch {
+      toast.error('Failed to sync Line Sale accounts.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Helper: Open Add Modal
   const handleOpenAddModal = () => {
     setModalMode('Add');
@@ -101,15 +129,19 @@ export const LineSaleMaster: React.FC = () => {
     setPartyCode(newCode);
     setPartyName('');
     setState('Karnataka');
-    setNearestDepot(depots[0]?.siteName || '');
+    setNearestDepot(depots[0]?.siteName || depots[0]?.name || '');
     setGstn('');
     setContactNo('');
     setGeographicalLocation('');
+    setVehicleNumber('');
+    setRouteName('');
+    setSapCustomerCode('');
     setUpiQr('');
     setIsActive(true);
-    setSchemeListId(schemeLists[0]?.id || '');
-    setPriceListId(priceLists[0]?.id || 'PL-STANDARD');
-    setAssignedUser(users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
+    setSchemeListId(schemeLists[0]?.id || schemeLists[0]?.code || '');
+    setPriceListId(priceLists[0]?.id || priceLists[0]?.code || 'PL-STANDARD');
+    const defaultOfficer = users.find((u) => u.role === 'Sales Officer')?.username || 'sales';
+    setAssignedUser(defaultOfficer);
     setIsFormModalOpen(true);
   };
 
@@ -117,17 +149,20 @@ export const LineSaleMaster: React.FC = () => {
   const handleOpenEditModal = (acc: LineSaleAccount) => {
     setModalMode('Edit');
     setPartyCode(acc.partyCode);
-    setPartyName(acc.partyName);
-    setState(acc.state);
-    setNearestDepot(acc.nearestDepot);
-    setGstn(acc.gstn);
-    setContactNo(acc.contactNo);
-    setGeographicalLocation(acc.geographicalLocation);
+    setPartyName(acc.partyName || acc.accountName || '');
+    setState(acc.state || 'Karnataka');
+    setNearestDepot(acc.nearestDepot || acc.depots?.[0]?.name || '');
+    setGstn(acc.gstn || '');
+    setContactNo(acc.contactNo || '');
+    setGeographicalLocation(acc.geographicalLocation || acc.routeName || '');
+    setVehicleNumber(acc.vehicleNumber || '');
+    setRouteName(acc.routeName || '');
+    setSapCustomerCode(acc.sapCustomerCode || '');
     setUpiQr(acc.upiQr || '');
     setIsActive(acc.isActive);
-    setSchemeListId(acc.schemeListId || schemeLists[0]?.id || '');
-    setPriceListId(acc.priceListId || priceLists[0]?.id || 'PL-STANDARD');
-    setAssignedUser(acc.assignedUser || users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
+    setSchemeListId(acc.schemeListId || acc.schemes?.[0]?.code || schemeLists[0]?.id || '');
+    setPriceListId(acc.priceListId || acc.priceList?.code || priceLists[0]?.id || 'PL-STANDARD');
+    setAssignedUser(acc.assignedUser || acc.salesOfficer?.loginId || users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
     setIsFormModalOpen(true);
   };
 
@@ -164,7 +199,7 @@ export const LineSaleMaster: React.FC = () => {
         toast.success(`GPS Location acquired: ${coords}`);
         setIsGettingGps(false);
       },
-      (error) => {
+      () => {
         toast.dismiss('gps-toast');
         toast.error('Unable to retrieve GPS lock. Please enter location manually.');
         setIsGettingGps(false);
@@ -174,7 +209,7 @@ export const LineSaleMaster: React.FC = () => {
   };
 
   // Form Submission
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!partyCode.trim()) {
@@ -202,57 +237,103 @@ export const LineSaleMaster: React.FC = () => {
       return;
     }
 
-    const payload: LineSaleAccount = {
-      partyCode: partyCode.trim().toUpperCase(),
-      partyName: partyName.trim(),
-      state,
-      nearestDepot,
-      gstn: gstn.trim().toUpperCase(),
-      contactNo: contactNo.trim(),
-      geographicalLocation: geographicalLocation.trim(),
-      upiQr,
-      isActive,
-      schemeListId,
-      priceListId,
-      assignedUser,
-    };
+    setIsSubmitting(true);
+    const cleanPartyCode = partyCode.trim().toUpperCase();
+    const cleanPartyName = partyName.trim();
 
-    if (modalMode === 'Add') {
-      const exists = lineSaleAccounts.some(
-        (a) => a.partyCode.toLowerCase() === payload.partyCode.toLowerCase()
-      );
-      if (exists) {
-        toast.error(`Party Code "${payload.partyCode}" already exists. Code must be unique.`);
-        return;
+    try {
+      if (modalMode === 'Add') {
+        const created = await lineSaleService.createLineSale({
+          partyCode: cleanPartyCode,
+          accountName: cleanPartyName,
+          partyName: cleanPartyName,
+          state,
+          nearestDepot,
+          depotIds: [nearestDepot],
+          gstn: gstn.trim().toUpperCase(),
+          contactNo: contactNo.trim(),
+          geographicalLocation: geographicalLocation.trim(),
+          routeName: routeName.trim() || geographicalLocation.trim(),
+          vehicleNumber: vehicleNumber.trim() || null,
+          sapCustomerCode: sapCustomerCode.trim() || null,
+          upiQr,
+          isActive,
+          schemeListId,
+          schemeListIds: schemeListId ? [schemeListId] : [],
+          priceListId,
+          assignedUser,
+          salesOfficerId: assignedUser,
+        });
+
+        addLineSaleAccount(created);
+        toast.success(`Line Sale Account "${cleanPartyCode}" created in database!`);
+      } else {
+        const updated = await lineSaleService.updateLineSale(cleanPartyCode, {
+          accountName: cleanPartyName,
+          partyName: cleanPartyName,
+          state,
+          nearestDepot,
+          depotIds: [nearestDepot],
+          gstn: gstn.trim().toUpperCase(),
+          contactNo: contactNo.trim(),
+          geographicalLocation: geographicalLocation.trim(),
+          routeName: routeName.trim() || geographicalLocation.trim(),
+          vehicleNumber: vehicleNumber.trim() || null,
+          sapCustomerCode: sapCustomerCode.trim() || null,
+          upiQr,
+          isActive,
+          schemeListId,
+          schemeListIds: schemeListId ? [schemeListId] : [],
+          priceListId,
+          assignedUser,
+          salesOfficerId: assignedUser,
+        });
+
+        updateLineSaleAccount(updated);
+        toast.success(`Line Sale Account "${cleanPartyCode}" updated!`);
       }
-      addLineSaleAccount(payload);
-      toast.success('Line Sale Account created successfully!');
-    } else {
-      updateLineSaleAccount(payload);
-      toast.success('Line Sale Account updated successfully!');
-    }
 
-    setIsFormModalOpen(false);
+      await refreshLineSaleAccounts();
+      setIsFormModalOpen(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Operation failed.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Toggle Active / Deactivate
-  const handleToggleStatus = (acc: LineSaleAccount) => {
-    toggleLineSaleAccountStatus(acc.partyCode);
-    toast.success(
-      `Account ${acc.partyCode} status changed to ${!acc.isActive ? 'Active' : 'Inactive'}.`
-    );
+  // Toggle Active / Deactivate non-destructively
+  const handleToggleStatus = async (acc: LineSaleAccount) => {
+    const newStatus = !acc.isActive;
+    try {
+      await lineSaleService.updateLineSaleStatus(acc.partyCode, newStatus);
+      toggleLineSaleAccountStatus(acc.partyCode);
+      await refreshLineSaleAccounts();
+      toast.success(
+        `Account ${acc.partyCode} status changed to ${newStatus ? 'Active' : 'Inactive'}.`
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Status update failed.';
+      toast.error(msg);
+    }
   };
 
   // Filter Logic
   const filteredAccounts = lineSaleAccounts.filter((acc) => {
+    const targetName = acc.partyName || acc.accountName || '';
     const matchesSearch =
       acc.partyCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acc.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acc.contactNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      acc.gstn.toLowerCase().includes(searchTerm.toLowerCase());
+      targetName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (acc.contactNo && acc.contactNo.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (acc.gstn && acc.gstn.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesState = !selectedStateFilter || acc.state === selectedStateFilter;
-    const matchesDepot = !selectedDepotFilter || acc.nearestDepot === selectedDepotFilter;
+    const matchesDepot =
+      !selectedDepotFilter ||
+      acc.nearestDepot === selectedDepotFilter ||
+      acc.depots?.some((d) => d.siteName === selectedDepotFilter || d.name === selectedDepotFilter);
+
     const matchesStatus =
       statusFilter === 'All'
         ? true
@@ -263,14 +344,16 @@ export const LineSaleMaster: React.FC = () => {
     return matchesSearch && matchesState && matchesDepot && matchesStatus;
   });
 
-  const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage) || 1;
   const paginatedAccounts = filteredAccounts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
   // Selected Scheme Object for Scheme View Modal
-  const activeSchemeObj = schemeLists.find((s) => s.id === schemeModal.account?.schemeListId);
+  const activeSchemeObj = schemeLists.find(
+    (s) => s.id === schemeModal.account?.schemeListId || s.code === schemeModal.account?.schemeListId
+  );
 
   return (
     <div className="space-y-6" id="line-sale-master-page">
@@ -281,16 +364,28 @@ export const LineSaleMaster: React.FC = () => {
             Line Sale Master
           </h1>
           <p className="text-slate-500 text-sm">
-            Maintain Line Sale accounts, assigned regional depots, GSTN credentials, location markers & UPI payment QR codes.
+            Maintain Line Sale accounts, regional depot associations, GSTN credentials, assigned Sales Officers & price/scheme links.
           </p>
         </div>
-        <button
-          onClick={handleOpenAddModal}
-          id="btn-add-line-sale-account"
-          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
-        >
-          <Plus className="h-4 w-4" /> Create New Account
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs"
+            title="Reload from MySQL Database"
+            id="btn-refresh-line-sales"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-brand-600' : 'text-slate-500'}`} />
+            <span>Sync DB</span>
+          </button>
+          <button
+            onClick={handleOpenAddModal}
+            id="btn-add-line-sale-account"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
+          >
+            <Plus className="h-4 w-4" /> Create New Account
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -347,8 +442,8 @@ export const LineSaleMaster: React.FC = () => {
             >
               <option value="">All Depots</option>
               {depots.map((d) => (
-                <option key={d.siteName} value={d.siteName}>
-                  {d.siteName}
+                <option key={d.siteName || d.name} value={d.siteName || d.name}>
+                  {d.siteName || d.name}
                 </option>
               ))}
             </select>
@@ -390,8 +485,8 @@ export const LineSaleMaster: React.FC = () => {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3.5 px-5">Party Code / Name</th>
-                <th className="py-3.5 px-4">State & Region</th>
-                <th className="py-3.5 px-4">Nearest Depot</th>
+                <th className="py-3.5 px-4">Sales Officer</th>
+                <th className="py-3.5 px-4">Depot(s)</th>
                 <th className="py-3.5 px-4">GSTN & Contact</th>
                 <th className="py-3.5 px-4">Location & QR</th>
                 <th className="py-3.5 px-4 text-center">Scheme View</th>
@@ -407,122 +502,147 @@ export const LineSaleMaster: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedAccounts.map((acc) => (
-                  <tr key={acc.partyCode} className="hover:bg-slate-50/60 transition-colors">
-                    {/* Party Code & Name */}
-                    <td className="py-4 px-5">
-                      <span className="font-mono text-xs font-bold text-brand-600 block">
-                        {acc.partyCode}
-                      </span>
-                      <span className="font-semibold text-slate-900 block text-sm mt-0.5">
-                        {acc.partyName}
-                      </span>
-                    </td>
+                paginatedAccounts.map((acc) => {
+                  const displayName = acc.partyName || acc.accountName || '';
+                  const officerName = acc.salesOfficer?.employeeName || acc.assignedUser || 'Unassigned';
+                  const primaryDepot = acc.nearestDepot || acc.depots?.[0]?.name || 'Central Depot';
 
-                    {/* State */}
-                    <td className="py-4 px-4 font-medium text-slate-700">
-                      <span className="inline-flex items-center gap-1 text-slate-800">
-                        <MapPin className="h-3.5 w-3.5 text-brand-500 shrink-0" />
-                        {acc.state}
-                      </span>
-                    </td>
-
-                    {/* Nearest Depot */}
-                    <td className="py-4 px-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                        <Warehouse className="h-3.5 w-3.5 text-slate-500" />
-                        {acc.nearestDepot}
-                      </span>
-                    </td>
-
-                    {/* GSTN & Contact */}
-                    <td className="py-4 px-4 space-y-1">
-                      <div className="font-mono text-[11px] text-slate-700 font-semibold flex items-center gap-1">
-                        <FileCheck className="h-3 w-3 text-slate-400" />
-                        {acc.gstn || 'N/A'}
-                      </div>
-                      <div className="text-slate-500 font-medium flex items-center gap-1">
-                        <Phone className="h-3 w-3 text-slate-400" />
-                        {acc.contactNo || 'N/A'}
-                      </div>
-                    </td>
-
-                    {/* Location & UPI QR */}
-                    <td className="py-4 px-4 space-y-1">
-                      <div className="text-slate-600 text-[11px] font-medium truncate max-w-[150px]" title={acc.geographicalLocation}>
-                        {acc.geographicalLocation || 'No GPS set'}
-                      </div>
-                      {acc.upiQr ? (
-                        <button
-                          onClick={() => setPreviewQrModal({ isOpen: true, accountName: acc.partyName, qrUrl: acc.upiQr! })}
-                          className="inline-flex items-center gap-1 text-brand-600 font-bold hover:underline text-[11px]"
-                          id={`btn-preview-qr-${acc.partyCode}`}
-                        >
-                          <QrCode className="h-3.5 w-3.5" /> View UPI QR
-                        </button>
-                      ) : (
-                        <span className="text-slate-400 text-[10px] italic">No QR uploaded</span>
-                      )}
-                    </td>
-
-                    {/* Scheme View */}
-                    <td className="py-4 px-4 text-center">
-                      <button
-                        onClick={() => setSchemeModal({ isOpen: true, account: acc })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold text-[11px] border border-amber-200 transition-colors"
-                        id={`btn-scheme-view-${acc.partyCode}`}
-                      >
-                        <TicketPercent className="h-3.5 w-3.5" /> Scheme View
-                      </button>
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-4 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                          acc.isActive
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-slate-100 text-slate-500 border-slate-200'
-                        }`}
-                      >
-                        {acc.isActive ? (
-                          <>
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Active
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-3 w-3 text-slate-400" /> Inactive
-                          </>
+                  return (
+                    <tr key={acc.partyCode} className="hover:bg-slate-50/60 transition-colors">
+                      {/* Party Code & Name */}
+                      <td className="py-4 px-5">
+                        <span className="font-mono text-xs font-bold text-brand-600 block">
+                          {acc.partyCode}
+                        </span>
+                        <span className="font-semibold text-slate-900 block text-sm mt-0.5">
+                          {displayName}
+                        </span>
+                        {acc.vehicleNumber && (
+                          <span className="inline-block font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded mt-1">
+                            {acc.vehicleNumber}
+                          </span>
                         )}
-                      </span>
-                    </td>
+                      </td>
 
-                    {/* Actions */}
-                    <td className="py-4 px-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      {/* Sales Officer */}
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-1.5 text-slate-800 font-medium">
+                          <UserCheck className="h-3.5 w-3.5 text-brand-500 shrink-0" />
+                          <span>{officerName}</span>
+                        </div>
+                        {acc.salesOfficer?.loginId && (
+                          <span className="text-[10px] text-slate-400 font-mono block">
+                            @{acc.salesOfficer.loginId}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Nearest / Assigned Depots */}
+                      <td className="py-4 px-4">
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-semibold text-[11px]">
+                            <Warehouse className="h-3 w-3 text-slate-500 shrink-0" />
+                            {primaryDepot}
+                          </span>
+                          {acc.depots && acc.depots.length > 1 && (
+                            <span className="text-[10px] text-slate-400 block pl-1">
+                              +{acc.depots.length - 1} more depot(s)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* GSTN & Contact */}
+                      <td className="py-4 px-4 space-y-1">
+                        <div className="font-mono text-[11px] text-slate-700 font-semibold flex items-center gap-1">
+                          <FileCheck className="h-3 w-3 text-slate-400 shrink-0" />
+                          {acc.gstn || 'N/A'}
+                        </div>
+                        <div className="text-slate-500 font-medium flex items-center gap-1">
+                          <Phone className="h-3 w-3 text-slate-400 shrink-0" />
+                          {acc.contactNo || 'N/A'}
+                        </div>
+                      </td>
+
+                      {/* Location & UPI QR */}
+                      <td className="py-4 px-4 space-y-1">
+                        <div className="text-slate-600 font-medium text-[11px] truncate max-w-[150px] flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-brand-500 shrink-0" />
+                          {acc.geographicalLocation || acc.routeName || acc.state || 'N/A'}
+                        </div>
+                        {acc.upiQr && (
+                          <button
+                            onClick={() =>
+                              setPreviewQrModal({
+                                isOpen: true,
+                                accountName: displayName,
+                                qrUrl: acc.upiQr!,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 hover:underline"
+                          >
+                            <QrCode className="h-3 w-3" /> View QR Code
+                          </button>
+                        )}
+                      </td>
+
+                      {/* Scheme View */}
+                      <td className="py-4 px-4 text-center">
                         <button
-                          onClick={() => handleOpenEditModal(acc)}
-                          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                          title="Edit Account"
-                          id={`btn-edit-${acc.partyCode}`}
+                          onClick={() => setSchemeModal({ isOpen: true, account: acc })}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] border border-amber-200 transition-colors"
+                          id={`btn-scheme-view-${acc.partyCode}`}
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <TicketPercent className="h-3.5 w-3.5" />
+                          <span>Schemes</span>
                         </button>
-                        <button
-                          onClick={() => handleToggleStatus(acc)}
-                          className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors border ${
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
                             acc.isActive
-                              ? 'border-red-100 text-red-600 bg-red-50/50 hover:bg-red-100'
-                              : 'border-emerald-100 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-500 border-slate-200'
                           }`}
-                          id={`btn-toggle-status-${acc.partyCode}`}
                         >
-                          {acc.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {acc.isActive ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          ) : (
+                            <XCircle className="h-3 w-3 text-slate-400" />
+                          )}
+                          {acc.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEditModal(acc)}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                            title="Edit Account"
+                            id={`btn-edit-${acc.partyCode}`}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(acc)}
+                            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors border ${
+                              acc.isActive
+                                ? 'border-red-100 text-red-600 bg-red-50/50 hover:bg-red-100'
+                                : 'border-emerald-100 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100'
+                            }`}
+                            id={`btn-toggle-status-${acc.partyCode}`}
+                          >
+                            {acc.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -535,83 +655,96 @@ export const LineSaleMaster: React.FC = () => {
               No Line Sale Accounts found. Click "Create New Account" to add one.
             </p>
           ) : (
-            paginatedAccounts.map((acc) => (
-              <div key={acc.partyCode} className="pt-4 first:pt-0 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-brand-600 block">{acc.partyCode}</span>
-                    <h4 className="font-semibold text-slate-900 text-sm mt-0.5">{acc.partyName}</h4>
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
-                      <MapPin className="h-3 w-3 text-brand-500" /> {acc.state}
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                      acc.isActive
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-slate-100 text-slate-500 border-slate-200'
-                    }`}
-                  >
-                    {acc.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
+            paginatedAccounts.map((acc) => {
+              const displayName = acc.partyName || acc.accountName || '';
+              const primaryDepot = acc.nearestDepot || acc.depots?.[0]?.name || 'Central Depot';
 
-                <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <div>
-                    <span className="text-slate-400 block text-[9px] uppercase font-bold">Nearest Depot</span>
-                    <span className="font-semibold text-slate-700">{acc.nearestDepot}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px] uppercase font-bold">GSTN No</span>
-                    <span className="font-mono font-medium text-slate-700">{acc.gstn || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px] uppercase font-bold">Contact No</span>
-                    <span className="font-medium text-slate-700">{acc.contactNo || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px] uppercase font-bold">Location</span>
-                    <span className="font-medium text-slate-700 truncate block">{acc.geographicalLocation || 'N/A'}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSchemeModal({ isOpen: true, account: acc })}
-                      className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200"
-                    >
-                      Scheme View
-                    </button>
-                    {acc.upiQr && (
-                      <button
-                        onClick={() => setPreviewQrModal({ isOpen: true, accountName: acc.partyName, qrUrl: acc.upiQr! })}
-                        className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px]"
-                      >
-                        UPI QR
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleOpenEditModal(acc)}
-                      className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 font-semibold text-xs"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(acc)}
-                      className={`px-2.5 py-1 rounded-lg font-bold text-xs ${
-                        acc.isActive ? 'text-red-600 bg-red-50' : 'text-emerald-700 bg-emerald-50'
+              return (
+                <div key={acc.partyCode} className="pt-4 first:pt-0 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="font-mono text-xs font-bold text-brand-600 block">{acc.partyCode}</span>
+                      <h4 className="font-semibold text-slate-900 text-sm mt-0.5">{displayName}</h4>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-brand-500" /> {acc.state}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        acc.isActive
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-slate-100 text-slate-500 border-slate-200'
                       }`}
                     >
-                      {acc.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
+                      {acc.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Depot</span>
+                      <span className="font-semibold text-slate-700 truncate block">{primaryDepot}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Sales Officer</span>
+                      <span className="font-medium text-slate-700 truncate block">
+                        {acc.salesOfficer?.employeeName || acc.assignedUser || 'Unassigned'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">GSTN No</span>
+                      <span className="font-mono font-medium text-slate-700">{acc.gstn || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Contact</span>
+                      <span className="font-medium text-slate-700">{acc.contactNo || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSchemeModal({ isOpen: true, account: acc })}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200"
+                      >
+                        Scheme View
+                      </button>
+                      {acc.upiQr && (
+                        <button
+                          onClick={() =>
+                            setPreviewQrModal({
+                              isOpen: true,
+                              accountName: displayName,
+                              qrUrl: acc.upiQr!,
+                            })
+                          }
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px]"
+                        >
+                          UPI QR
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenEditModal(acc)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 font-semibold text-xs"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(acc)}
+                        className={`px-2.5 py-1 rounded-lg font-bold text-xs ${
+                          acc.isActive ? 'text-red-600 bg-red-50' : 'text-emerald-700 bg-emerald-50'
+                        }`}
+                      >
+                        {acc.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -662,7 +795,7 @@ export const LineSaleMaster: React.FC = () => {
                 onChange={(e) => setPartyCode(e.target.value)}
                 placeholder="e.g. LSA-1001"
                 id="input-party-code"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-500 disabled:bg-slate-100 disabled:text-slate-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-500 disabled:bg-slate-100 disabled:text-slate-500 uppercase"
               />
             </div>
 
@@ -682,6 +815,48 @@ export const LineSaleMaster: React.FC = () => {
               />
             </div>
 
+            {/* Assigned Sales Officer */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Assigned Sales Officer <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={assignedUser}
+                onChange={(e) => setAssignedUser(e.target.value)}
+                id="select-assigned-officer"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-brand-500"
+              >
+                {users
+                  .filter((u) => u.role === 'Sales Officer')
+                  .map((u) => (
+                    <option key={u.employeeId || u.username} value={u.username}>
+                      {u.employeeName} ({u.username})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Nearest / Regional Depot */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Regional Depot <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={nearestDepot}
+                onChange={(e) => setNearestDepot(e.target.value)}
+                id="select-nearest-depot"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-brand-500"
+              >
+                {depots.map((d) => (
+                  <option key={d.siteName || d.name} value={d.siteName || d.name}>
+                    {d.siteName || d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* State */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">State</label>
@@ -699,21 +874,18 @@ export const LineSaleMaster: React.FC = () => {
               </select>
             </div>
 
-            {/* Nearest Depot */}
+            {/* Price List Association */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nearest Depot <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Price List</label>
               <select
-                required
-                value={nearestDepot}
-                onChange={(e) => setNearestDepot(e.target.value)}
-                id="select-nearest-depot"
+                value={priceListId}
+                onChange={(e) => setPriceListId(e.target.value)}
+                id="select-price-list"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-brand-500"
               >
-                {depots.map((d) => (
-                  <option key={d.siteName} value={d.siteName}>
-                    {d.siteName}
+                {priceLists.map((p) => (
+                  <option key={p.id || p.code} value={p.id || p.code}>
+                    {p.name} ({p.id || p.code})
                   </option>
                 ))}
               </select>
@@ -741,6 +913,32 @@ export const LineSaleMaster: React.FC = () => {
                 onChange={(e) => setContactNo(e.target.value)}
                 placeholder="e.g. +91 98450 12345"
                 id="input-contact-no"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {/* Vehicle Number */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Vehicle Number</label>
+              <input
+                type="text"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
+                placeholder="e.g. KA-01-EA-1234"
+                id="input-vehicle-number"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:border-brand-500 uppercase"
+              />
+            </div>
+
+            {/* Route Name / Description */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Route / Area Name</label>
+              <input
+                type="text"
+                value={routeName}
+                onChange={(e) => setRouteName(e.target.value)}
+                placeholder="e.g. Bangalore South - Electronic City Route"
+                id="input-route-name"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500"
               />
             </div>
@@ -773,16 +971,17 @@ export const LineSaleMaster: React.FC = () => {
 
           {/* Scheme List Association */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Associated Scheme List</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Associated Promotional Scheme</label>
             <select
               value={schemeListId}
               onChange={(e) => setSchemeListId(e.target.value)}
               id="select-scheme-list"
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-brand-500"
             >
+              <option value="">No Promotional Scheme</option>
               {schemeLists.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.id})
+                <option key={s.id || s.code} value={s.id || s.code}>
+                  {s.name} ({s.id || s.code})
                 </option>
               ))}
             </select>
@@ -797,7 +996,7 @@ export const LineSaleMaster: React.FC = () => {
                   <img src={upiQr} alt="UPI QR Preview" className="h-12 w-12 object-contain rounded border border-slate-200 bg-white" />
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">UPI QR Attached</span>
-                    <span className="text-[10px] text-slate-400">Base64 stored image</span>
+                    <span className="text-[10px] text-slate-400">Stored Image</span>
                   </div>
                 </div>
                 <button
@@ -836,6 +1035,7 @@ export const LineSaleMaster: React.FC = () => {
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => setIsFormModalOpen(false)}
               className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
             >
@@ -843,10 +1043,12 @@ export const LineSaleMaster: React.FC = () => {
             </button>
             <button
               type="submit"
+              disabled={isSubmitting}
               id="btn-save-line-sale-account"
-              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-md transition-all"
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              {modalMode === 'Add' ? 'Create Account' : 'Save Changes'}
+              {isSubmitting && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+              <span>{modalMode === 'Add' ? 'Create Account' : 'Save Changes'}</span>
             </button>
           </div>
         </form>
@@ -872,7 +1074,7 @@ export const LineSaleMaster: React.FC = () => {
       <Modal
         isOpen={schemeModal.isOpen}
         onClose={() => setSchemeModal({ isOpen: false, account: null })}
-        title={`Scheme Deals - ${schemeModal.account?.partyName || ''}`}
+        title={`Scheme Deals - ${schemeModal.account?.partyName || schemeModal.account?.accountName || ''}`}
       >
         <div className="space-y-4">
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
@@ -881,7 +1083,7 @@ export const LineSaleMaster: React.FC = () => {
               <h4 className="font-bold text-slate-900 text-sm">{activeSchemeObj?.name || 'Default Scheme List'}</h4>
             </div>
             <span className="font-mono text-xs font-bold text-amber-800 bg-amber-100 px-2 py-1 rounded">
-              {activeSchemeObj?.id || 'N/A'}
+              {activeSchemeObj?.id || activeSchemeObj?.code || 'N/A'}
             </span>
           </div>
 

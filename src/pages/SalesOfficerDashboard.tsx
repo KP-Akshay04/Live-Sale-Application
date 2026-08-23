@@ -45,8 +45,13 @@ export const SalesOfficerDashboard: React.FC = () => {
     priceLists,
     schemeLists,
     goodsIssues,
+    refreshGoodsIssues,
     goodsReturns
   } = useApp();
+
+  useEffect(() => {
+    refreshGoodsIssues();
+  }, [refreshGoodsIssues]);
 
   // Active Tab: entry (Sales Section / Form), history (Sales View), stock (Stock Breakdown)
   const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'stock'>('entry');

@@ -245,8 +245,42 @@ export interface SyncItem {
 }
 
 export interface LineSaleAccount {
+  id?: number;
+  lineSaleId?: number;
   partyCode: string;
+  accountName?: string;
   partyName: string;
+  salesOfficerId?: number;
+  salesOfficer?: {
+    id: number;
+    employeeId: string;
+    employeeName: string;
+    loginId: string;
+    role: string;
+  } | null;
+  assignedUser?: string; // Username of Sales Officer assigned to this Line Sale
+  priceListId?: string; // Linked price list ID/code for Price View
+  priceList?: {
+    id: number;
+    code: string;
+    name: string;
+  } | null;
+  vehicleNumber?: string | null;
+  routeName?: string | null;
+  sapCustomerCode?: string | null;
+  depotIds?: number[];
+  depots?: Array<{
+    id: number;
+    code: string;
+    name: string;
+    siteName: string;
+  }>;
+  schemeListIds?: number[];
+  schemes?: Array<{
+    id: number;
+    code: string;
+    name: string;
+  }>;
   state: string;
   nearestDepot: string;
   gstn: string;
@@ -255,8 +289,8 @@ export interface LineSaleAccount {
   upiQr?: string; // Base64 data URL or image path
   isActive: boolean;
   schemeListId?: string; // Linked scheme list ID for Scheme View
-  priceListId?: string; // Linked price list ID for Price View
-  assignedUser?: string; // Username of Sales Officer assigned to this Line Sale
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const INDIAN_STATES = [

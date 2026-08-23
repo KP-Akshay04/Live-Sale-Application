@@ -45,6 +45,7 @@ export const DepotDashboard: React.FC = () => {
   const {
     currentUser,
     goodsIssues,
+    refreshGoodsIssues,
     addGoodsIssue,
     goodsReturns,
     addGoodsReturn,
@@ -56,6 +57,10 @@ export const DepotDashboard: React.FC = () => {
     depots,
     users
   } = useApp();
+
+  React.useEffect(() => {
+    refreshGoodsIssues();
+  }, [refreshGoodsIssues]);
 
   // 1. DATA ACCESS & ISOLATION: Identify active depot assigned to currently logged in Depo Manager
   const activeDepot = depots.find((d) => d.assignedUser === currentUser?.username) || depots[0];
@@ -165,9 +170,19 @@ export const DepotDashboard: React.FC = () => {
   // ==========================================
   // GOODS ISSUE HANDLERS
   // ==========================================
+  const getEffectiveProductRate = (prodId: string, partyCode: string): number => {
+    const selectedParty = assignedLineSales.find((l) => l.partyCode === partyCode);
+    const partyPriceList = priceLists.find((pl) => pl.id === selectedParty?.priceListId);
+    const plItem = partyPriceList?.items.find((i) => i.productId === prodId);
+    if (plItem) return plItem.rate;
+    const prod = products.find((p) => p.id === prodId);
+    return prod?.rate || 0;
+  };
+
   const handleAddIssueRow = () => {
     const firstProd = products[0];
     if (!firstProd) return;
+    const effRate = getEffectiveProductRate(firstProd.id, issuePartyCode);
     setIssueItems([
       ...issueItems,
       {
@@ -175,9 +190,9 @@ export const DepotDashboard: React.FC = () => {
         productName: firstProd.description,
         additionalName: firstProd.additionalName || '',
         qty: 1,
-        uom: 'Box',
-        rate: firstProd.rate,
-        amount: firstProd.rate * 1
+        uom: firstProd.baseUom || 'Box',
+        rate: effRate,
+        amount: effRate * 1
       }
     ]);
   };
@@ -195,13 +210,13 @@ export const DepotDashboard: React.FC = () => {
           const prod = products.find((p) => p.id === val);
           if (prod) {
             const newQty = item.qty || 1;
-            const newRate = prod.rate;
+            const newRate = getEffectiveProductRate(prod.id, issuePartyCode);
             return {
               ...item,
               productId: prod.id,
               productName: prod.description,
               additionalName: prod.additionalName || '',
-              uom: item.uom || 'Box',
+              uom: item.uom || prod.baseUom || 'Box',
               rate: newRate,
               amount: newQty * newRate
             };

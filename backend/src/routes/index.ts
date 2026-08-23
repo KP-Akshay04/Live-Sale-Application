@@ -6,6 +6,8 @@ import depotRoutes from './depot.routes.js';
 import productRoutes from './product.routes.js';
 import priceListRoutes from './priceList.routes.js';
 import schemeListRoutes from './schemeList.routes.js';
+import lineSaleRoutes from './lineSale.routes.js';
+import goodsIssueRoutes from './goodsIssue.routes.js';
 
 const apiRouter = Router();
 
@@ -17,6 +19,8 @@ apiRouter.use('/depots', depotRoutes);
 apiRouter.use('/products', productRoutes);
 apiRouter.use('/price-lists', priceListRoutes);
 apiRouter.use('/scheme-lists', schemeListRoutes);
+apiRouter.use('/line-sales', lineSaleRoutes);
+apiRouter.use('/goods-issues', goodsIssueRoutes);
 
 export default apiRouter;
 

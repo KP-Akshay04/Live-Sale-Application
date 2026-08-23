@@ -1,23 +1,7 @@
 import apiClient from './api';
 import { User } from '../types';
 
-export interface LoginResponse {
-  user: {
-    userId: number;
-    employeeId: string;
-    employeeName: string;
-    loginId: string;
-    phone: string | null;
-    role: string;
-    roleCode: string;
-    depotId: number | null;
-    depotName: string | null;
-    isActive: boolean;
-  };
-  token: string;
-}
-
-export interface AuthMeResponse {
+export interface AuthUserResponse {
   userId: number;
   employeeId: string;
   employeeName: string;
@@ -30,37 +14,61 @@ export interface AuthMeResponse {
   isActive: boolean;
 }
 
+export interface LoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: AuthUserResponse;
+    token: string;
+  };
+}
+
+export interface AuthMeResponse {
+  success: boolean;
+  data: {
+    user: AuthUserResponse;
+  };
+}
+
 export const authApi = {
-  async login(loginId: string, password: string): Promise<LoginResponse> {
+  async login(loginId: string, password: string): Promise<LoginResponse['data']> {
     const response = await apiClient.post<LoginResponse>('/auth/login', {
       loginId,
       password,
     });
-    return response.data;
+
+    return response.data.data;
   },
 
-  async getMe(): Promise<AuthMeResponse> {
+  async getMe(): Promise<AuthUserResponse> {
     const response = await apiClient.get<AuthMeResponse>('/auth/me');
-    return response.data;
+
+    return response.data.data.user;
   },
 
   async logout(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiClient.post<{ success: boolean; message: string }>('/auth/logout');
+      const response = await apiClient.post<{ success: boolean; message: string }>(
+        '/auth/logout'
+      );
+
       return response.data;
     } catch {
-      return { success: true, message: 'Logged out locally' };
+      return {
+        success: true,
+        message: 'Logged out locally',
+      };
     }
   },
 };
 
-export function mapSafeUserToUser(safeUser: AuthMeResponse): User {
+export function mapSafeUserToUser(safeUser: AuthUserResponse): User {
   return {
     userId: safeUser.userId,
     employeeId: safeUser.employeeId,
     employeeName: safeUser.employeeName,
     loginId: safeUser.loginId,
-    username: safeUser.loginId, // mapped for compatibility
+    username: safeUser.loginId,
     role: safeUser.role as User['role'],
     roleCode: safeUser.roleCode,
     depotId: safeUser.depotId,

@@ -1,8 +1,18 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load environment variables from .env file if present
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// backend/src/config -> backend -> project root
+const projectRootEnv = path.resolve(__dirname, '../../../.env');
+
+// Load the project-level .env file.
+// Existing process.env values are preserved.
+dotenv.config({
+  path: projectRootEnv,
+});
 
 export interface EnvironmentConfig {
   port: number;
@@ -20,18 +30,39 @@ export interface EnvironmentConfig {
 }
 
 export const env: EnvironmentConfig = {
-  port: parseInt(process.env.PORT || '5000', 10),
+  port: parseInt(process.env.BACKEND_PORT || process.env.PORT || '5000', 10),
+
   nodeEnv: process.env.NODE_ENV || 'development',
+
   databaseUrl: process.env.DATABASE_URL || '',
+
   clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+
   isProduction: (process.env.NODE_ENV || 'development') === 'production',
-  jwtSecret: process.env.JWT_SECRET || 'bindu-default-dev-secret-key-32-chars-long!!',
+
+  jwtSecret:
+    process.env.JWT_SECRET ||
+    'bindu-default-dev-secret-key-32-chars-long!!',
+
   jwtExpiration: process.env.JWT_EXPIRATION || '8h',
-  devAdminLoginId: process.env.DEV_ADMIN_LOGIN_ID || process.env.DEV_ADMIN_EMAIL,
+
+  devAdminLoginId:
+    process.env.DEV_ADMIN_LOGIN_ID ||
+    process.env.DEV_ADMIN_EMAIL,
+
   devAdminEmail: process.env.DEV_ADMIN_EMAIL,
+
   devAdminPassword: process.env.DEV_ADMIN_PASSWORD,
-  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '20', 10),
+
+  rateLimitWindowMs: parseInt(
+    process.env.RATE_LIMIT_WINDOW_MS || '60000',
+    10
+  ),
+
+  rateLimitMax: parseInt(
+    process.env.RATE_LIMIT_MAX || '20',
+    10
+  ),
 };
 
 export function validateEnvironment(): void {
@@ -41,7 +72,10 @@ export function validateEnvironment(): void {
     );
   }
 
-  if (env.isProduction && env.jwtSecret === 'bindu-default-dev-secret-key-32-chars-long!!') {
+  if (
+    env.isProduction &&
+    env.jwtSecret === 'bindu-default-dev-secret-key-32-chars-long!!'
+  ) {
     console.error(
       '[Security Warning] Running in production with default JWT_SECRET! Set a secure random JWT_SECRET in environment.'
     );

@@ -1,101 +1,128 @@
-const CACHE_NAME = 'livesale-erp-v1';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'livesale-erp-v2';
+
+const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon-svg.svg',
-  '/assets/.aistudio/logo.png' // optional workspace icon
 ];
 
-// Install Event
+/**
+ * Install
+ */
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(ASSETS_TO_CACHE);
-      })
-      .then(() => {
-        return self.skipWaiting();
-      })
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activate Event (Cleanup Old Caches)
+/**
+ * Activate
+ */
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => {
-      return self.clients.claim();
-    })
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((name) => name !== CACHE_NAME)
+            .map((name) => caches.delete(name))
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch Event with Stale-While-Revalidate & SPA Navigation Fallback
+/**
+ * Fetch
+ */
 self.addEventListener('fetch', (event) => {
-  const requestUrl = new URL(event.request.url);
+  const request = event.request;
+  const url = new URL(request.url);
 
-  // Exclude Dev Hot-Module-Replacement, live reload sockets, and mock API routes from cache
+  // Only handle GET requests.
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Never intercept API requests.
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Never interfere with Vite development tooling.
   if (
-    requestUrl.pathname.startsWith('/@vite') ||
-    requestUrl.pathname.startsWith('/node_modules') ||
-    requestUrl.pathname.startsWith('/api') ||
-    event.request.url.includes('ws://') ||
-    event.request.url.includes('hot-update')
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.includes('hot-update')
   ) {
     return;
   }
 
-  // SPA Page Navigation Fallback (Redirect all layout requests to cached index.html)
-  if (event.request.mode === 'navigate') {
+  /**
+   * SPA navigation:
+   * Network first.
+   * If offline, use cached index.html.
+   */
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html') || caches.match('/');
+      fetch(request).catch(async () => {
+        const cached =
+          (await caches.match('/index.html')) ||
+          (await caches.match('/'));
+
+        return (
+          cached ||
+          new Response('Application unavailable offline.', {
+            status: 503,
+            headers: {
+              'Content-Type': 'text/plain',
+            },
+          })
+        );
       })
     );
+
     return;
   }
 
-  // Handle standard static assets
+  /**
+   * Static assets:
+   * Cache first, then network.
+   */
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Fetch background update for next time
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {
-          // Silent catch for background fetch failure in offline mode
-        });
         return cachedResponse;
       }
 
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+      return fetch(request)
+        .then((networkResponse) => {
+          if (
+            networkResponse &&
+            networkResponse.ok &&
+            networkResponse.type === 'basic'
+          ) {
+            const responseToCache = networkResponse.clone();
+
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseToCache);
+            });
+          }
+
           return networkResponse;
-        }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+        })
+        .catch(() => {
+          return new Response('', {
+            status: 503,
+            statusText: 'Offline',
+          });
         });
-
-        return networkResponse;
-      }).catch(() => {
-        // Fallbacks for asset requests if offline
-        if (event.request.url.match(/\.(png|jpg|jpeg|gif|svg)$/)) {
-          return caches.match('/icon-svg.svg');
-        }
-      });
     })
   );
 });

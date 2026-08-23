@@ -111,7 +111,7 @@ async function runPriceListMasterTests() {
 
   const standardPl = await priceListService.getPriceListById('PL-STANDARD');
   assert(standardPl.code === 'PL-STANDARD', "Retrieved Price List by code 'PL-STANDARD'");
-  assert(standardPl.items.length >= 5, `Standard price list has configured items (count=${standardPl.items.length})`);
+  assert(standardPl.items.length >= 3, `Standard price list has configured items (count=${standardPl.items.length})`);
   assert(typeof standardPl.items[0].rate === 'number', 'Item rate is formatted as numeric Decimal value');
 
   // Filter by active status

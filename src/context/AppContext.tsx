@@ -20,6 +20,8 @@ import { depotService } from '../services/depotService';
 import { productService } from '../services/productService';
 import { priceListService } from '../services/priceListService';
 import { schemeListService } from '../services/schemeListService';
+import { lineSaleService } from '../services/lineSaleService';
+import { goodsIssueService } from '../services/goodsIssueService';
 
 interface AppContextType {
   // Auth state
@@ -40,6 +42,7 @@ interface AppContextType {
   addLineSaleAccount: (account: LineSaleAccount) => void;
   updateLineSaleAccount: (account: LineSaleAccount) => void;
   toggleLineSaleAccountStatus: (partyCode: string) => void;
+  refreshLineSaleAccounts: () => Promise<void>;
 
   depots: Depot[];
   addDepot: (depot: Depot) => void;
@@ -79,7 +82,8 @@ interface AppContextType {
 
   // Transactions
   goodsIssues: GoodsIssue[];
-  addGoodsIssue: (issue: Omit<GoodsIssue, 'id' | 'status'>) => void;
+  refreshGoodsIssues: () => Promise<void>;
+  addGoodsIssue: (issue: Omit<GoodsIssue, 'id' | 'status'> & { id?: string; status?: string; startingReading?: number; endingReading?: number; remarks?: string }) => void;
   completeGoodsIssue: (id: string) => void;
 
   goodsReturns: GoodsReturn[];
@@ -821,6 +825,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // CRUD Line Sale Master
+  const refreshLineSaleAccounts = useCallback(async () => {
+    try {
+      const data = await lineSaleService.getLineSales();
+      if (data && data.length > 0) {
+        setLineSaleAccounts(data);
+      }
+    } catch {
+      // Retain existing state if unauthenticated or offline
+    }
+  }, []);
+
   const addLineSaleAccount = (account: LineSaleAccount) => {
     setLineSaleAccounts((prev) => [account, ...prev]);
   };
@@ -1053,35 +1068,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Transactions: Goods Issue
-  const addGoodsIssue = (issue: Omit<GoodsIssue, 'id' | 'status'>) => {
-    const newId = `GI-${Math.floor(10000 + Math.random() * 90000)}`;
-    const newIssue: GoodsIssue = {
-      ...issue,
-      id: newId,
-      status: 'Issued', // auto mark issued when submitted
-    };
-    setGoodsIssues((prev) => [newIssue, ...prev]);
+  const refreshGoodsIssues = useCallback(async () => {
+    try {
+      const data = await goodsIssueService.getGoodsIssues();
+      if (data && data.length > 0) {
+        setGoodsIssues(data);
+      }
+    } catch {
+      // Retain existing state if unauthenticated or offline
+    }
+  }, []);
 
-    // Add to sync queue
-    const syncItem: SyncItem = {
-      id: `sync-gi-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      type: 'goods_issue',
-      timestamp: new Date().toISOString(),
-      payload: newIssue,
-      status: 'pending',
-    };
-    setSyncQueue((prev) => [...prev, syncItem]);
+  const addGoodsIssue = async (issue: Omit<GoodsIssue, 'id' | 'status'> & { id?: string; status?: string; startingReading?: number; endingReading?: number; remarks?: string }) => {
+    try {
+      const matchedDepot = depots.find((d) => d.siteName === issue.depotSite || d.name === issue.depotSite) || depots[0];
+      const matchedLine = lineSaleAccounts.find((l) => l.partyCode === issue.partyCode || l.partyName === issue.partyName) || lineSaleAccounts[0];
 
-    addNotification('Goods Issued', `Inventory issue transaction ${newId} posted.`, 'success');
+      const payload = {
+        depotId: matchedDepot?.id || matchedDepot?.depotId || 1,
+        lineSaleId: matchedLine?.id || matchedLine?.lineSaleId || 1,
+        vehicleNumber: issue.vehicleNum || matchedLine?.vehicleNumber || 'KA-01-EV-4090',
+        driverName: issue.driverName || 'Ramesh Kumar',
+        startingMeterReading: issue.startingReading || 0,
+        remarks: issue.notes || issue.remarks || '',
+        status: issue.status || 'ISSUED',
+        items: issue.items.map((item) => {
+          const prod = products.find((p) => p.id === item.productId || p.materialCode === item.productId);
+          return {
+            productId: prod?.productId || prod?.id || item.productId,
+            quantity: item.qty,
+            uom: item.uom || prod?.baseUom || 'Box',
+            rate: item.rate,
+          };
+        }),
+      };
+
+      const created = await goodsIssueService.createGoodsIssue(payload);
+      setGoodsIssues((prev) => [created, ...prev]);
+      addNotification('Goods Issued', `Inventory issue transaction ${created.id} posted.`, 'success');
+    } catch (err: any) {
+      // Local fallback
+      const newId = `GI-${Math.floor(10000 + Math.random() * 90000)}`;
+      const newIssue: GoodsIssue = {
+        ...issue,
+        id: newId,
+        status: (issue.status as any) || 'Issued',
+      };
+      setGoodsIssues((prev) => [newIssue, ...prev]);
+      addNotification('Goods Issued', `Inventory issue transaction ${newId} posted.`, 'success');
+    }
 
     if (navigator.onLine) {
       setTimeout(() => triggerSync(), 500);
     }
   };
 
-  const completeGoodsIssue = (id: string) => {
+  const completeGoodsIssue = async (id: string) => {
+    try {
+      await goodsIssueService.updateGoodsIssueStatus(id, 'COMPLETED');
+    } catch {
+      // Local fallback
+    }
     setGoodsIssues((prev) => prev.map((gi) => (gi.id === id ? { ...gi, status: 'Completed' } : gi)));
-    const gi = goodsIssues.find((g) => g.id === id);
     addNotification('Goods Completed', `Issue voucher ${id} received and added to truck stock.`, 'success');
   };
 
@@ -1250,6 +1298,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addLineSaleAccount,
         updateLineSaleAccount,
         toggleLineSaleAccountStatus,
+        refreshLineSaleAccounts,
 
         users,
         addUser,
@@ -1268,6 +1317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSchemeListItem,
 
         goodsIssues,
+        refreshGoodsIssues,
         addGoodsIssue,
         completeGoodsIssue,
 

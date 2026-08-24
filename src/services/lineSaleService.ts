@@ -142,7 +142,7 @@ export const lineSaleService = {
    */
   async getLineSales(params?: LineSaleFilterParams): Promise<LineSaleAccount[]> {
     const response = await apiClient.get<{ success: boolean; data: LineSaleApiResponse[]; count: number }>(
-      '/api/line-sales',
+      '/line-sales',
       { params }
     );
     return (response.data.data || []).map(mapLineSaleApiToModel);
@@ -153,7 +153,7 @@ export const lineSaleService = {
    */
   async getLineSale(idOrPartyCode: string | number): Promise<LineSaleAccount> {
     const response = await apiClient.get<{ success: boolean; data: LineSaleApiResponse }>(
-      `/api/line-sales/${encodeURIComponent(String(idOrPartyCode))}`
+      `/line-sales/${encodeURIComponent(String(idOrPartyCode))}`
     );
     return mapLineSaleApiToModel(response.data.data);
   },
@@ -163,7 +163,7 @@ export const lineSaleService = {
    */
   async createLineSale(payload: CreateLineSalePayload): Promise<LineSaleAccount> {
     const response = await apiClient.post<{ success: boolean; data: LineSaleApiResponse; message: string }>(
-      '/api/line-sales',
+      '/line-sales',
       payload
     );
     return mapLineSaleApiToModel(response.data.data);
@@ -174,7 +174,7 @@ export const lineSaleService = {
    */
   async updateLineSale(idOrPartyCode: string | number, payload: UpdateLineSalePayload): Promise<LineSaleAccount> {
     const response = await apiClient.put<{ success: boolean; data: LineSaleApiResponse; message: string }>(
-      `/api/line-sales/${encodeURIComponent(String(idOrPartyCode))}`,
+      `/line-sales/${encodeURIComponent(String(idOrPartyCode))}`,
       payload
     );
     return mapLineSaleApiToModel(response.data.data);
@@ -185,7 +185,7 @@ export const lineSaleService = {
    */
   async updateLineSaleStatus(idOrPartyCode: string | number, isActive: boolean): Promise<LineSaleAccount> {
     const response = await apiClient.patch<{ success: boolean; data: LineSaleApiResponse; message: string }>(
-      `/api/line-sales/${encodeURIComponent(String(idOrPartyCode))}/status`,
+      `/line-sales/${encodeURIComponent(String(idOrPartyCode))}/status`,
       { isActive }
     );
     return mapLineSaleApiToModel(response.data.data);
@@ -199,7 +199,7 @@ export const lineSaleService = {
     depotIds: Array<number | string>
   ): Promise<LineSaleAccount> {
     const response = await apiClient.put<{ success: boolean; data: LineSaleApiResponse; message: string }>(
-      `/api/line-sales/${encodeURIComponent(String(idOrPartyCode))}/depots`,
+      `/line-sales/${encodeURIComponent(String(idOrPartyCode))}/depots`,
       { depotIds }
     );
     return mapLineSaleApiToModel(response.data.data);
@@ -213,7 +213,7 @@ export const lineSaleService = {
     schemeListIds: Array<number | string>
   ): Promise<LineSaleAccount> {
     const response = await apiClient.put<{ success: boolean; data: LineSaleApiResponse; message: string }>(
-      `/api/line-sales/${encodeURIComponent(String(idOrPartyCode))}/schemes`,
+      `/line-sales/${encodeURIComponent(String(idOrPartyCode))}/schemes`,
       { schemeListIds }
     );
     return mapLineSaleApiToModel(response.data.data);

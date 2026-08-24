@@ -8,6 +8,7 @@ import priceListRoutes from './priceList.routes.js';
 import schemeListRoutes from './schemeList.routes.js';
 import lineSaleRoutes from './lineSale.routes.js';
 import goodsIssueRoutes from './goodsIssue.routes.js';
+import goodsReturnRoutes from './goodsReturn.routes.js';
 
 const apiRouter = Router();
 
@@ -21,6 +22,7 @@ apiRouter.use('/price-lists', priceListRoutes);
 apiRouter.use('/scheme-lists', schemeListRoutes);
 apiRouter.use('/line-sales', lineSaleRoutes);
 apiRouter.use('/goods-issues', goodsIssueRoutes);
+apiRouter.use('/goods-returns', goodsReturnRoutes);
 
 export default apiRouter;
 

@@ -22,6 +22,7 @@ import { priceListService } from '../services/priceListService';
 import { schemeListService } from '../services/schemeListService';
 import { lineSaleService } from '../services/lineSaleService';
 import { goodsIssueService } from '../services/goodsIssueService';
+import { goodsReturnService } from '../services/goodsReturnService';
 
 interface AppContextType {
   // Auth state
@@ -112,34 +113,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Initial Mock Data
-const INITIAL_LINE_SALE_ACCOUNTS: LineSaleAccount[] = [
-  {
-    partyCode: 'LSA-1001',
-    partyName: 'Sri Laxmi Line Sales Agency',
-    state: 'Karnataka',
-    nearestDepot: 'Central Depot Bangalore',
-    gstn: '29ABCDE1234F1Z5',
-    contactNo: '+91 98450 12345',
-    geographicalLocation: '12.9716, 77.5946',
-    isActive: true,
-    schemeListId: 'SL-SUMMER-SPECIAL',
-    priceListId: 'PL-STANDARD',
-    assignedUser: 'sales',
-  },
-  {
-    partyCode: 'LSA-1002',
-    partyName: 'Chamundeshwari Line Traders',
-    state: 'Karnataka',
-    nearestDepot: 'Mysore Satellite Depot',
-    gstn: '29FGHIJ5678K1Z9',
-    contactNo: '+91 98801 67890',
-    geographicalLocation: '12.2958, 76.6394',
-    isActive: true,
-    schemeListId: 'SL-STANDARD',
-    priceListId: 'PL-STANDARD',
-    assignedUser: 'sales_officer_two',
-  },
-];
+const INITIAL_LINE_SALE_ACCOUNTS: LineSaleAccount[] = [];
 
 const INITIAL_PRODUCTS: Product[] = [
   {
@@ -660,10 +634,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loadState('live_sale_price_lists', INITIAL_PRICE_LISTS, setPriceLists);
       loadState('live_sale_scheme_lists', INITIAL_SCHEME_LISTS, setSchemeLists);
       loadState('live_sale_goods_issues', INITIAL_GOODS_ISSUES, setGoodsIssues);
-      loadState('live_sale_goods_returns', INITIAL_GOODS_RETURNS, setGoodsReturns);
       loadState('live_sale_sales_entries', INITIAL_SALES_ENTRIES, setSalesEntries);
       loadState('live_sale_notifications', INITIAL_NOTIFICATIONS, setNotifications);
       loadState('live_sale_sync_queue', [], setSyncQueue);
+
+
+      try {
+  const backendGoodsReturns =
+    await goodsReturnService.getGoodsReturns();
+
+  if (isMounted) {
+    setGoodsReturns(backendGoodsReturns);
+  }
+} catch (error: any) {
+  console.warn(
+    '[Goods Return] Backend load failed:',
+    error?.response?.data || error?.message || error
+  );
+}
 
       if (isMounted) {
         setIsLoading(false);
@@ -709,10 +697,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!isLoading) localStorage.setItem('live_sale_goods_issues', JSON.stringify(goodsIssues));
   }, [goodsIssues, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) localStorage.setItem('live_sale_goods_returns', JSON.stringify(goodsReturns));
-  }, [goodsReturns, isLoading]);
 
   useEffect(() => {
     if (!isLoading) localStorage.setItem('live_sale_sales_entries', JSON.stringify(salesEntries));
@@ -1134,36 +1118,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Transactions: Goods Return
-  const addGoodsReturn = (ret: Omit<GoodsReturn, 'id' | 'status'>) => {
-    const newId = `GR-${Math.floor(20000 + Math.random() * 90000)}`;
-    const newReturn: GoodsReturn = {
-      ...ret,
-      id: newId,
-      status: 'Pending',
-    };
-    setGoodsReturns((prev) => [newReturn, ...prev]);
+const addGoodsReturn = async (
+  ret: Omit<GoodsReturn, 'id' | 'status'>
+) => {
+  try {
+    const created =
+      await goodsReturnService.createGoodsReturn(ret);
 
-    // Add to sync queue
-    const syncItem: SyncItem = {
-      id: `sync-gr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      type: 'goods_return',
-      timestamp: new Date().toISOString(),
-      payload: newReturn,
-      status: 'pending',
-    };
-    setSyncQueue((prev) => [...prev, syncItem]);
+    setGoodsReturns((prev) => [
+      created,
+      ...prev.filter((gr) => gr.id !== created.id),
+    ]);
 
-    addNotification('Goods Return Logged', `Return voucher ${newId} logged as Pending.`, 'info');
+    addNotification(
+      'Goods Return Created',
+      `Return voucher ${created.id} was successfully saved to the database.`,
+      'success'
+    );
+  } catch (err: any) {
+    console.error(
+      '[Goods Return] Create failed:',
+      err?.response?.data || err?.message || err
+    );
 
-    if (navigator.onLine) {
-      setTimeout(() => triggerSync(), 500);
-    }
-  };
+    addNotification(
+      'Goods Return Failed',
+      err?.response?.data?.error?.message ||
+        err?.message ||
+        'Unable to create Goods Return.',
+      'warning'
+    );
 
-  const completeGoodsReturn = (id: string) => {
-    setGoodsReturns((prev) => prev.map((gr) => (gr.id === id ? { ...gr, status: 'Completed' } : gr)));
-    addNotification('Goods Return Completed', `Return invoice ${id} approved & restocked.`, 'success');
-  };
+    throw err;
+  }
+};
+
+const completeGoodsReturn = async (id: string) => {
+  try {
+    const updated =
+      await goodsReturnService.updateGoodsReturnStatus(
+        id,
+        'COMPLETED'
+      );
+
+    setGoodsReturns((prev) =>
+      prev.map((gr) =>
+        gr.id === id ? updated : gr
+      )
+    );
+
+    addNotification(
+      'Goods Return Completed',
+      `Return invoice ${updated.id} was successfully completed.`,
+      'success'
+    );
+  } catch (err: any) {
+    console.error(
+      '[Goods Return] Status update failed:',
+      err?.response?.data || err?.message || err
+    );
+
+    addNotification(
+      'Goods Return Update Failed',
+      err?.response?.data?.error?.message ||
+        err?.message ||
+        'Unable to update Goods Return status.',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+
+  
 
   // Transactions: Sales Entry
   const addSalesEntry = (entry: Omit<SalesEntry, 'id' | 'date'>) => {

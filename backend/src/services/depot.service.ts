@@ -60,7 +60,7 @@ interface DepotWithRelations {
       name: string;
     } | null;
   }>;
-  depotLineSales: Array<{
+  depotLineSales?: Array<{
     id: number;
     depotId: number;
     lineSaleId: number;
@@ -272,7 +272,7 @@ export class DepotService {
      *
      * No JSON fallback.
      */
-    const activeMappings = depot.depotLineSales.filter(
+    const activeMappings = (depot.depotLineSales ?? []).filter(
       (mapping) => mapping.isActive
     );
 

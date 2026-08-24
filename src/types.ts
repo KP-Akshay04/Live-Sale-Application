@@ -245,52 +245,84 @@ export interface SyncItem {
 }
 
 export interface LineSaleAccount {
-  id?: number;
-  lineSaleId?: number;
+  id: number;
+  lineSaleId: number;
+
   partyCode: string;
-  accountName?: string;
+  accountName: string;
   partyName: string;
-  salesOfficerId?: number;
-  salesOfficer?: {
+
+  salesOfficerId: number;
+  salesOfficer: {
     id: number;
     employeeId: string;
     employeeName: string;
     loginId: string;
     role: string;
   } | null;
-  assignedUser?: string; // Username of Sales Officer assigned to this Line Sale
-  priceListId?: string; // Linked price list ID/code for Price View
-  priceList?: {
+
+  assignedUser: string;
+
+  priceListId: string | number | null;
+  priceList: {
     id: number;
     code: string;
     name: string;
   } | null;
-  vehicleNumber?: string | null;
-  routeName?: string | null;
-  sapCustomerCode?: string | null;
-  depotIds?: number[];
-  depots?: Array<{
+
+  vehicleNumber: string | null;
+  routeName: string | null;
+  sapCustomerCode: string | null;
+
+  isActive: boolean;
+
+  depotIds: number[];
+
+  depots: Array<{
     id: number;
     code: string;
     name: string;
     siteName: string;
   }>;
-  schemeListIds?: number[];
-  schemes?: Array<{
+
+  depotLineSales?: Array<{
+    id: number;
+    depotId: number;
+    depotCode: string;
+    depotName: string;
+    siteName: string;
+    isActive: boolean;
+  }>;
+
+  nearestDepot: string;
+
+  schemeListIds: number[];
+
+  schemes: Array<{
     id: number;
     code: string;
     name: string;
   }>;
+
+  lineSaleSchemes?: Array<{
+    id: number;
+    schemeListId: number;
+    schemeCode: string;
+    schemeName: string;
+    isActive: boolean;
+  }>;
+
+  schemeListId: string;
+
+  // UI metadata
   state: string;
-  nearestDepot: string;
   gstn: string;
   contactNo: string;
   geographicalLocation: string;
-  upiQr?: string; // Base64 data URL or image path
-  isActive: boolean;
-  schemeListId?: string; // Linked scheme list ID for Scheme View
-  createdAt?: string;
-  updatedAt?: string;
+  upiQr: string;
+
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const INDIAN_STATES = [

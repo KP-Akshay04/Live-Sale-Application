@@ -10,7 +10,11 @@ export class LineSaleServiceError extends Error {
   statusCode: number;
   code: string;
 
-  constructor(message: string, statusCode = 400, code = 'LINE_SALE_SERVICE_ERROR') {
+  constructor(
+    message: string,
+    statusCode = 400,
+    code = 'LINE_SALE_SERVICE_ERROR'
+  ) {
     super(message);
     this.name = 'LineSaleServiceError';
     this.statusCode = statusCode;
@@ -19,7 +23,10 @@ export class LineSaleServiceError extends Error {
 }
 
 export class LineSaleService {
-  // In-memory fallback for offline or isolated test environments
+  /**
+   * In-memory fallback is retained only for isolated/offline test environments.
+   * Normal application execution uses MySQL through Prisma.
+   */
   private memoryLineSales: Map<number, any> = new Map();
   private nextMemoryId = 200;
 
@@ -45,7 +52,11 @@ export class LineSaleService {
         employeeId: 'EMP-003',
         employeeName: 'Ramesh Kumar',
         loginId: 'sales',
-        role: { id: 3, code: 'SALES_OFFICER', name: 'Sales Officer' },
+        role: {
+          id: 3,
+          code: 'SALES_OFFICER',
+          name: 'Sales Officer',
+        },
       },
       priceList: {
         id: 1,
@@ -58,7 +69,11 @@ export class LineSaleService {
           depotId: 1,
           lineSaleId: 1,
           isActive: true,
-          depot: { id: 1, code: 'DEPOT-BLR-01', name: 'Central Depot Bangalore' },
+          depot: {
+            id: 1,
+            code: 'DEPOT-BLR-01',
+            name: 'Central Depot Bangalore',
+          },
         },
       ],
       lineSaleSchemes: [
@@ -67,10 +82,13 @@ export class LineSaleService {
           lineSaleId: 1,
           schemeListId: 1,
           isActive: true,
-          schemeList: { id: 1, code: 'SL-SUMMER-SPECIAL', name: 'Summer Splash Promotion' },
+          schemeList: {
+            id: 1,
+            code: 'SL-SUMMER-SPECIAL',
+            name: 'Summer Splash Promotion',
+          },
         },
       ],
-      // UI metadata
       state: 'Karnataka',
       gstn: '29ABCDE1234F1Z5',
       contactNo: '+91 98450 12345',
@@ -95,7 +113,11 @@ export class LineSaleService {
         employeeId: 'EMP-004',
         employeeName: 'Sunil Rao',
         loginId: 'sales_officer_two',
-        role: { id: 3, code: 'SALES_OFFICER', name: 'Sales Officer' },
+        role: {
+          id: 3,
+          code: 'SALES_OFFICER',
+          name: 'Sales Officer',
+        },
       },
       priceList: {
         id: 1,
@@ -108,7 +130,11 @@ export class LineSaleService {
           depotId: 2,
           lineSaleId: 2,
           isActive: true,
-          depot: { id: 2, code: 'DEPOT-MYS-01', name: 'Mysore Satellite Depot' },
+          depot: {
+            id: 2,
+            code: 'DEPOT-MYS-01',
+            name: 'Mysore Satellite Depot',
+          },
         },
       ],
       lineSaleSchemes: [
@@ -117,10 +143,13 @@ export class LineSaleService {
           lineSaleId: 2,
           schemeListId: 2,
           isActive: true,
-          schemeList: { id: 2, code: 'SL-STANDARD', name: 'Standard Volume Schemes' },
+          schemeList: {
+            id: 2,
+            code: 'SL-STANDARD',
+            name: 'Standard Volume Schemes',
+          },
         },
       ],
-      // UI metadata
       state: 'Karnataka',
       gstn: '29FGHIJ5678K1Z9',
       contactNo: '+91 98801 67890',
@@ -133,10 +162,12 @@ export class LineSaleService {
   }
 
   /**
-   * Helper: Resolves Sales Officer user from ID, employeeId, or loginId.
-   * Enforces that the referenced user exists and has the Sales Officer role.
+   * Resolves Sales Officer from numeric ID, employee ID, or login ID.
+   * The referenced user must have Sales Officer role.
    */
-  private async resolveSalesOfficer(identifier: number | string): Promise<{
+  private async resolveSalesOfficer(
+    identifier: number | string
+  ): Promise<{
     id: number;
     employeeId: string;
     employeeName: string;
@@ -148,12 +179,18 @@ export class LineSaleService {
 
     try {
       let user = null;
-      if (!isNaN(numericId) && numericId > 0 && String(numericId) === raw) {
+
+      if (
+        !isNaN(numericId) &&
+        numericId > 0 &&
+        String(numericId) === raw
+      ) {
         user = await prisma.user.findUnique({
           where: { id: numericId },
           include: { role: true },
         });
       }
+
       if (!user) {
         user = await prisma.user.findFirst({
           where: {
@@ -169,10 +206,14 @@ export class LineSaleService {
       if (user) {
         const roleName = user.role?.name || '';
         const roleCode = user.role?.code || '';
+
+        const normalizedRoleName = roleName
+          .toLowerCase()
+          .replace(/[\s_-]+/g, '');
+
         const isSalesOfficer =
-          roleName.toLowerCase() === 'sales officer' ||
-          roleCode.toUpperCase() === 'SALES_OFFICER' ||
-          roleName.toLowerCase().replace(/[\s_-]+/g, '') === 'salesofficer';
+          normalizedRoleName === 'salesofficer' ||
+          roleCode.toUpperCase() === 'SALES_OFFICER';
 
         if (!isSalesOfficer) {
           throw new LineSaleServiceError(
@@ -194,15 +235,37 @@ export class LineSaleService {
       if (err instanceof LineSaleServiceError) {
         throw err;
       }
-      // If DB error, fallback below
     }
 
-    // Memory fallback lookup
     const fallbackUsers = [
-      { id: 3, employeeId: 'EMP-003', employeeName: 'Ramesh Kumar', loginId: 'sales', role: 'Sales Officer' },
-      { id: 4, employeeId: 'EMP-004', employeeName: 'Sunil Rao', loginId: 'sales_officer_two', role: 'Sales Officer' },
-      { id: 1, employeeId: 'EMP-001', employeeName: 'Super Admin', loginId: 'admin', role: 'Super Admin' },
-      { id: 2, employeeId: 'EMP-002', employeeName: 'Depot Manager', loginId: 'depot', role: 'Depot Person' },
+      {
+        id: 3,
+        employeeId: 'EMP-003',
+        employeeName: 'Ramesh Kumar',
+        loginId: 'sales',
+        role: 'Sales Officer',
+      },
+      {
+        id: 4,
+        employeeId: 'EMP-004',
+        employeeName: 'Sunil Rao',
+        loginId: 'sales_officer_two',
+        role: 'Sales Officer',
+      },
+      {
+        id: 1,
+        employeeId: 'EMP-001',
+        employeeName: 'Super Admin',
+        loginId: 'admin',
+        role: 'Super Admin',
+      },
+      {
+        id: 2,
+        employeeId: 'EMP-002',
+        employeeName: 'Depot Manager',
+        loginId: 'depot',
+        role: 'Depot Person',
+      },
     ];
 
     const match = fallbackUsers.find(
@@ -220,6 +283,7 @@ export class LineSaleService {
           'INVALID_SALES_OFFICER_ROLE'
         );
       }
+
       return match;
     }
 
@@ -231,27 +295,40 @@ export class LineSaleService {
   }
 
   /**
-   * Helper: Resolves Price List from ID or code.
+   * Resolves Price List from numeric ID or code.
    */
-  private async resolvePriceList(identifier: number | string | null | undefined): Promise<{
+  private async resolvePriceList(
+    identifier: number | string | null | undefined
+  ): Promise<{
     id: number;
     code: string;
     name: string;
   } | null> {
-    if (!identifier) return null;
+    if (identifier === null || identifier === undefined) {
+      return null;
+    }
 
     const raw = String(identifier).trim();
-    if (!raw) return null;
+
+    if (!raw) {
+      return null;
+    }
 
     const numericId = parseInt(raw, 10);
 
     try {
       let priceList = null;
-      if (!isNaN(numericId) && numericId > 0 && String(numericId) === raw) {
+
+      if (
+        !isNaN(numericId) &&
+        numericId > 0 &&
+        String(numericId) === raw
+      ) {
         priceList = await prisma.priceList.findUnique({
           where: { id: numericId },
         });
       }
+
       if (!priceList) {
         priceList = await prisma.priceList.findUnique({
           where: { code: raw },
@@ -266,17 +343,26 @@ export class LineSaleService {
         };
       }
     } catch {
-      // Prisma error fallback
+      // Fallback below.
     }
 
-    // Memory fallback lookup
     const fallbackPriceLists = [
-      { id: 1, code: 'PL-STANDARD', name: 'Standard Wholesale Price List' },
-      { id: 2, code: 'PL-RETAIL-PROMO', name: 'Retail Promotional Price List' },
+      {
+        id: 1,
+        code: 'PL-STANDARD',
+        name: 'Standard Wholesale Price List',
+      },
+      {
+        id: 2,
+        code: 'PL-RETAIL-PROMO',
+        name: 'Retail Promotional Price List',
+      },
     ];
 
     const match = fallbackPriceLists.find(
-      (pl) => pl.id === numericId || pl.code.toUpperCase() === raw.toUpperCase()
+      (pl) =>
+        pl.id === numericId ||
+        pl.code.toUpperCase() === raw.toUpperCase()
     );
 
     if (match) {
@@ -291,61 +377,100 @@ export class LineSaleService {
   }
 
   /**
-   * Helper: Resolves an array of Depots by numeric ID, code, or name.
+   * Resolves Depots by numeric ID, code, name, or location.
    */
-  private async resolveDepots(depotIdentifiers: Array<number | string>): Promise<Array<{
-    id: number;
-    code: string;
-    name: string;
-  }>> {
+  private async resolveDepots(
+    depotIdentifiers: Array<number | string>
+  ): Promise<
+    Array<{
+      id: number;
+      code: string;
+      name: string;
+    }>
+  > {
     if (!depotIdentifiers || depotIdentifiers.length === 0) {
       return [];
     }
 
-    const resolvedDepots: Array<{ id: number; code: string; name: string }> = [];
+    const resolvedDepots: Array<{
+      id: number;
+      code: string;
+      name: string;
+    }> = [];
+
     const seenIds = new Set<number>();
 
-    for (const rawIdent of depotIdentifiers) {
-      const raw = String(rawIdent).trim();
-      if (!raw) continue;
+    for (const rawIdentifier of depotIdentifiers) {
+      const raw = String(rawIdentifier).trim();
+
+      if (!raw) {
+        continue;
+      }
 
       const numericId = parseInt(raw, 10);
       let depot = null;
 
       try {
-        if (!isNaN(numericId) && numericId > 0 && String(numericId) === raw) {
-          depot = await prisma.depot.findUnique({ where: { id: numericId } });
+        if (
+          !isNaN(numericId) &&
+          numericId > 0 &&
+          String(numericId) === raw
+        ) {
+          depot = await prisma.depot.findUnique({
+            where: { id: numericId },
+          });
         }
+
         if (!depot) {
-          depot = await prisma.depot.findUnique({ where: { code: raw } });
+          depot = await prisma.depot.findUnique({
+            where: { code: raw },
+          });
         }
+
         if (!depot) {
           depot = await prisma.depot.findFirst({
             where: {
               OR: [
                 { name: raw },
-                { location: { contains: raw } },
+                {
+                  location: {
+                    contains: raw,
+                  },
+                },
               ],
             },
           });
         }
       } catch {
-        // Fallback
+        // Fallback below.
       }
 
       if (!depot) {
-        // Fallback memory list
         const fallbackDepots = [
-          { id: 1, code: 'DEPOT-BLR-01', name: 'Central Depot Bangalore' },
-          { id: 2, code: 'DEPOT-MYS-01', name: 'Mysore Satellite Depot' },
-          { id: 3, code: 'DEPOT-MNG-01', name: 'Mangalore Coastal Depot' },
+          {
+            id: 1,
+            code: 'DEPOT-BLR-01',
+            name: 'Central Depot Bangalore',
+          },
+          {
+            id: 2,
+            code: 'DEPOT-MYS-01',
+            name: 'Mysore Satellite Depot',
+          },
+          {
+            id: 3,
+            code: 'DEPOT-MNG-01',
+            name: 'Mangalore Coastal Depot',
+          },
         ];
+
         const match = fallbackDepots.find(
           (d) =>
             d.id === numericId ||
             d.code.toUpperCase() === raw.toUpperCase() ||
             d.name.toLowerCase() === raw.toLowerCase()
         );
+
         if (match) {
           depot = match;
         }
@@ -361,6 +486,7 @@ export class LineSaleService {
 
       if (!seenIds.has(depot.id)) {
         seenIds.add(depot.id);
+
         resolvedDepots.push({
           id: depot.id,
           code: depot.code,
@@ -373,59 +499,88 @@ export class LineSaleService {
   }
 
   /**
-   * Helper: Resolves an array of Scheme Lists by numeric ID or code.
+   * Resolves Scheme Lists by numeric ID, code, or name.
    */
-  private async resolveSchemes(schemeIdentifiers: Array<number | string>): Promise<Array<{
-    id: number;
-    code: string;
-    name: string;
-  }>> {
+  private async resolveSchemes(
+    schemeIdentifiers: Array<number | string>
+  ): Promise<
+    Array<{
+      id: number;
+      code: string;
+      name: string;
+    }>
+  > {
     if (!schemeIdentifiers || schemeIdentifiers.length === 0) {
       return [];
     }
 
-    const resolvedSchemes: Array<{ id: number; code: string; name: string }> = [];
+    const resolvedSchemes: Array<{
+      id: number;
+      code: string;
+      name: string;
+    }> = [];
+
     const seenIds = new Set<number>();
 
-    for (const rawIdent of schemeIdentifiers) {
-      const raw = String(rawIdent).trim();
-      if (!raw) continue;
+    for (const rawIdentifier of schemeIdentifiers) {
+      const raw = String(rawIdentifier).trim();
+
+      if (!raw) {
+        continue;
+      }
 
       const numericId = parseInt(raw, 10);
       let scheme = null;
 
       try {
-        if (!isNaN(numericId) && numericId > 0 && String(numericId) === raw) {
-          scheme = await prisma.schemeList.findUnique({ where: { id: numericId } });
+        if (
+          !isNaN(numericId) &&
+          numericId > 0 &&
+          String(numericId) === raw
+        ) {
+          scheme = await prisma.schemeList.findUnique({
+            where: { id: numericId },
+          });
         }
+
         if (!scheme) {
-          scheme = await prisma.schemeList.findUnique({ where: { code: raw } });
+          scheme = await prisma.schemeList.findUnique({
+            where: { code: raw },
+          });
         }
+
         if (!scheme) {
           scheme = await prisma.schemeList.findFirst({
             where: {
-              OR: [
-                { name: raw },
-              ],
+              name: raw,
             },
           });
         }
       } catch {
-        // Fallback
+        // Fallback below.
       }
 
       if (!scheme) {
-        // Fallback memory list
         const fallbackSchemes = [
-          { id: 1, code: 'SL-SUMMER-SPECIAL', name: 'Summer Splash Promotion' },
-          { id: 2, code: 'SL-STANDARD', name: 'Standard Volume Schemes' },
+          {
+            id: 1,
+            code: 'SL-SUMMER-SPECIAL',
+            name: 'Summer Splash Promotion',
+          },
+          {
+            id: 2,
+            code: 'SL-STANDARD',
+            name: 'Standard Volume Schemes',
+          },
         ];
+
         const match = fallbackSchemes.find(
           (s) =>
             s.id === numericId ||
             s.code.toUpperCase() === raw.toUpperCase() ||
             s.name.toLowerCase() === raw.toLowerCase()
         );
+
         if (match) {
           scheme = match;
         }
@@ -441,6 +596,7 @@ export class LineSaleService {
 
       if (!seenIds.has(scheme.id)) {
         seenIds.add(scheme.id);
+
         resolvedSchemes.push({
           id: scheme.id,
           code: scheme.code,
@@ -453,17 +609,31 @@ export class LineSaleService {
   }
 
   /**
-   * Helper: Validates line sale input fields.
+   * Validates Line Sale input.
    */
-  private validateLineSaleInput(dto: CreateLineSaleDTO | UpdateLineSaleDTO, isCreate = true) {
+  private validateLineSaleInput(
+    dto: CreateLineSaleDTO | UpdateLineSaleDTO,
+    isCreate = true
+  ) {
     if (isCreate) {
       const partyCode = (dto.partyCode || '').trim();
+
       if (!partyCode) {
-        throw new LineSaleServiceError('Party Code is required.', 400, 'VALIDATION_ERROR');
+        throw new LineSaleServiceError(
+          'Party Code is required.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
+
       if (partyCode.length > 50) {
-        throw new LineSaleServiceError('Party Code cannot exceed 50 characters.', 400, 'VALIDATION_ERROR');
+        throw new LineSaleServiceError(
+          'Party Code cannot exceed 50 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
+
       if (!/^[A-Za-z0-9_-]+$/.test(partyCode)) {
         throw new LineSaleServiceError(
           'Party Code must contain only alphanumeric characters, hyphens, and underscores.',
@@ -473,43 +643,119 @@ export class LineSaleService {
       }
     }
 
-    const accountName = (dto.accountName || dto.partyName || '').trim();
+    const accountName = (
+      dto.accountName ||
+      dto.partyName ||
+      ''
+    ).trim();
+
     if (isCreate && !accountName) {
-      throw new LineSaleServiceError('Account Name / Party Name is required.', 400, 'VALIDATION_ERROR');
-    }
-    if (accountName && accountName.length > 150) {
-      throw new LineSaleServiceError('Account Name cannot exceed 150 characters.', 400, 'VALIDATION_ERROR');
-    }
-
-    if (dto.vehicleNumber && dto.vehicleNumber.trim().length > 30) {
-      throw new LineSaleServiceError('Vehicle Number cannot exceed 30 characters.', 400, 'VALIDATION_ERROR');
+      throw new LineSaleServiceError(
+        'Account Name / Party Name is required.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    if (dto.routeName && dto.routeName.trim().length > 100) {
-      throw new LineSaleServiceError('Route Name cannot exceed 100 characters.', 400, 'VALIDATION_ERROR');
+    if (accountName.length > 150) {
+      throw new LineSaleServiceError(
+        'Account Name cannot exceed 150 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    if (dto.sapCustomerCode && dto.sapCustomerCode.trim().length > 50) {
-      throw new LineSaleServiceError('SAP Customer Code cannot exceed 50 characters.', 400, 'VALIDATION_ERROR');
+    if (
+      dto.vehicleNumber &&
+      dto.vehicleNumber.trim().length > 30
+    ) {
+      throw new LineSaleServiceError(
+        'Vehicle Number cannot exceed 30 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (
+      dto.routeName &&
+      dto.routeName.trim().length > 100
+    ) {
+      throw new LineSaleServiceError(
+        'Route Name cannot exceed 100 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (
+      dto.sapCustomerCode &&
+      dto.sapCustomerCode.trim().length > 50
+    ) {
+      throw new LineSaleServiceError(
+        'SAP Customer Code cannot exceed 50 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (dto.state && dto.state.trim().length > 100) {
+      throw new LineSaleServiceError(
+        'State cannot exceed 100 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (dto.gstn && dto.gstn.trim().length > 20) {
+      throw new LineSaleServiceError(
+        'GSTN cannot exceed 20 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (dto.contactNo && dto.contactNo.trim().length > 20) {
+      throw new LineSaleServiceError(
+        'Contact Number cannot exceed 20 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (
+      dto.geographicalLocation &&
+      dto.geographicalLocation.trim().length > 255
+    ) {
+      throw new LineSaleServiceError(
+        'Geographical Location cannot exceed 255 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
   }
 
   /**
-   * Transforms a database record with relations into a standardized LineSaleResponseDTO.
+   * Formats a Prisma record into LineSaleResponseDTO.
    */
-  private formatLineSale(record: any): LineSaleResponseDTO {
+  private formatLineSale(
+    record: any
+  ): LineSaleResponseDTO {
     const rawSalesOfficer = record.salesOfficer;
+
     const salesOfficerDTO = rawSalesOfficer
       ? {
           id: rawSalesOfficer.id,
           employeeId: rawSalesOfficer.employeeId,
           employeeName: rawSalesOfficer.employeeName,
           loginId: rawSalesOfficer.loginId,
-          role: rawSalesOfficer.role?.name || 'Sales Officer',
+          role:
+            rawSalesOfficer.role?.name ||
+            'Sales Officer',
         }
       : null;
 
     const rawPriceList = record.priceList;
+
     const priceListDTO = rawPriceList
       ? {
           id: rawPriceList.id,
@@ -518,121 +764,272 @@ export class LineSaleService {
         }
       : null;
 
-    const rawDepotLineSales = Array.isArray(record.depotLineSales) ? record.depotLineSales : [];
-    const depots: Array<{ id: number; code: string; name: string; siteName: string }> = [];
+    const rawDepotLineSales = Array.isArray(
+      record.depotLineSales
+    )
+      ? record.depotLineSales
+      : [];
+
+    const depots: Array<{
+      id: number;
+      code: string;
+      name: string;
+      siteName: string;
+    }> = [];
+
     const depotIds: number[] = [];
+
     const depotLineSalesDTO: any[] = [];
 
     for (const dls of rawDepotLineSales) {
       const depot = dls.depot;
-      if (depot) {
-        depotIds.push(depot.id);
-        depots.push({
-          id: depot.id,
-          code: depot.code,
-          name: depot.name,
-          siteName: depot.name,
-        });
-        depotLineSalesDTO.push({
-          id: dls.id,
-          depotId: depot.id,
-          depotCode: depot.code,
-          depotName: depot.name,
-          siteName: depot.name,
-          isActive: dls.isActive,
-        });
+
+      if (!depot) {
+        continue;
       }
+
+      depotIds.push(depot.id);
+
+      depots.push({
+        id: depot.id,
+        code: depot.code,
+        name: depot.name,
+        siteName: depot.name,
+      });
+
+      depotLineSalesDTO.push({
+        id: dls.id,
+        depotId: depot.id,
+        depotCode: depot.code,
+        depotName: depot.name,
+        siteName: depot.name,
+        isActive: dls.isActive,
+      });
     }
 
-    const rawLineSaleSchemes = Array.isArray(record.lineSaleSchemes) ? record.lineSaleSchemes : [];
-    const schemes: Array<{ id: number; code: string; name: string }> = [];
+    const rawLineSaleSchemes = Array.isArray(
+      record.lineSaleSchemes
+    )
+      ? record.lineSaleSchemes
+      : [];
+
+    const schemes: Array<{
+      id: number;
+      code: string;
+      name: string;
+    }> = [];
+
     const schemeListIds: number[] = [];
+
     const lineSaleSchemesDTO: any[] = [];
 
     for (const lss of rawLineSaleSchemes) {
       const scheme = lss.schemeList;
-      if (scheme) {
-        schemeListIds.push(scheme.id);
-        schemes.push({
-          id: scheme.id,
-          code: scheme.code,
-          name: scheme.name,
-        });
-        lineSaleSchemesDTO.push({
-          id: lss.id,
-          schemeListId: scheme.id,
-          schemeCode: scheme.code,
-          schemeName: scheme.name,
-          isActive: lss.isActive,
-        });
+
+      if (!scheme) {
+        continue;
       }
+
+      schemeListIds.push(scheme.id);
+
+      schemes.push({
+        id: scheme.id,
+        code: scheme.code,
+        name: scheme.name,
+      });
+
+      lineSaleSchemesDTO.push({
+        id: lss.id,
+        schemeListId: scheme.id,
+        schemeCode: scheme.code,
+        schemeName: scheme.name,
+        isActive: lss.isActive,
+      });
     }
 
-    const nearestDepotName = depots[0]?.name || record.nearestDepot || '';
-    const primarySchemeCode = schemes[0]?.code || (schemes[0]?.id ? String(schemes[0].id) : record.schemeListId || '');
+    const nearestDepotName =
+      depots[0]?.name ||
+      record.nearestDepot ||
+      '';
+
+    const primarySchemeCode =
+      schemes[0]?.code ||
+      record.schemeListId ||
+      '';
 
     return {
       id: record.id,
       lineSaleId: record.id,
+
       partyCode: record.partyCode,
       accountName: record.accountName,
       partyName: record.accountName,
+
       salesOfficerId: record.salesOfficerId,
       salesOfficer: salesOfficerDTO,
-      assignedUser: salesOfficerDTO?.loginId || record.assignedUser || 'sales',
+      assignedUser:
+        salesOfficerDTO?.loginId ||
+        record.assignedUser ||
+        'sales',
+
       priceListId: record.priceListId || null,
       priceList: priceListDTO,
-      vehicleNumber: record.vehicleNumber || null,
-      routeName: record.routeName || null,
-      sapCustomerCode: record.sapCustomerCode || null,
+
+      vehicleNumber:
+        record.vehicleNumber || null,
+
+      routeName:
+        record.routeName || null,
+
+      sapCustomerCode:
+        record.sapCustomerCode || null,
+
       isActive: record.isActive,
+
       depotIds,
       depots,
       depotLineSales: depotLineSalesDTO,
       nearestDepot: nearestDepotName,
+
       schemeListIds,
       schemes,
       lineSaleSchemes: lineSaleSchemesDTO,
       schemeListId: primarySchemeCode,
-      // UI metadata fields
-      state: record.state || 'Karnataka',
+
+      /*
+       * Master fields persisted directly in MySQL.
+       */
+      state: record.state || '',
       gstn: record.gstn || '',
       contactNo: record.contactNo || '',
-      geographicalLocation: record.geographicalLocation || record.routeName || '',
+      geographicalLocation:
+        record.geographicalLocation ||
+        record.routeName ||
+        '',
       upiQr: record.upiQr || '',
-      createdAt: record.createdAt || new Date(),
-      updatedAt: record.updatedAt || new Date(),
+
+      createdAt:
+        record.createdAt || new Date(),
+
+      updatedAt:
+        record.updatedAt || new Date(),
     };
   }
 
   /**
-   * Retrieves all Line Sale Accounts matching optional filters.
+   * Common Prisma include object for Line Sale queries.
    */
-  async getLineSales(filters: LineSaleFilterQuery = {}): Promise<LineSaleResponseDTO[]> {
+  private getLineSaleInclude() {
+    return {
+      salesOfficer: {
+        include: {
+          role: true,
+        },
+      },
+      priceList: true,
+      depotLineSales: {
+        include: {
+          depot: true,
+        },
+      },
+      lineSaleSchemes: {
+        include: {
+          schemeList: true,
+        },
+      },
+    };
+  }
+
+  /**
+   * Retrieves all Line Sale Accounts.
+   */
+  async getLineSales(
+    filters: LineSaleFilterQuery = {}
+  ): Promise<LineSaleResponseDTO[]> {
     try {
       const where: any = {};
 
-      if (filters.search && filters.search.trim().length > 0) {
+      if (
+        filters.search &&
+        filters.search.trim().length > 0
+      ) {
         const search = filters.search.trim();
+
         where.OR = [
-          { partyCode: { contains: search } },
-          { accountName: { contains: search } },
-          { routeName: { contains: search } },
-          { vehicleNumber: { contains: search } },
-          { sapCustomerCode: { contains: search } },
+          {
+            partyCode: {
+              contains: search,
+            },
+          },
+          {
+            accountName: {
+              contains: search,
+            },
+          },
+          {
+            routeName: {
+              contains: search,
+            },
+          },
+          {
+            vehicleNumber: {
+              contains: search,
+            },
+          },
+          {
+            sapCustomerCode: {
+              contains: search,
+            },
+          },
+          {
+            state: {
+              contains: search,
+            },
+          },
+          {
+            gstn: {
+              contains: search,
+            },
+          },
+          {
+            contactNo: {
+              contains: search,
+            },
+          },
+          {
+            geographicalLocation: {
+              contains: search,
+            },
+          },
         ];
       }
 
-      if (filters.partyCode && filters.partyCode.trim().length > 0) {
-        where.partyCode = filters.partyCode.trim();
+      if (
+        filters.partyCode &&
+        filters.partyCode.trim().length > 0
+      ) {
+        where.partyCode =
+          filters.partyCode.trim();
       }
 
-      if (filters.accountName && filters.accountName.trim().length > 0) {
-        where.accountName = { contains: filters.accountName.trim() };
+      if (
+        filters.accountName &&
+        filters.accountName.trim().length > 0
+      ) {
+        where.accountName = {
+          contains:
+            filters.accountName.trim(),
+        };
       }
 
-      if (filters.routeName && filters.routeName.trim().length > 0) {
-        where.routeName = { contains: filters.routeName.trim() };
+      if (
+        filters.routeName &&
+        filters.routeName.trim().length > 0
+      ) {
+        where.routeName = {
+          contains:
+            filters.routeName.trim(),
+        };
       }
 
       if (filters.isActive !== undefined) {
@@ -640,108 +1037,190 @@ export class LineSaleService {
       }
 
       if (filters.salesOfficerId) {
-        const sid = typeof filters.salesOfficerId === 'number'
-          ? filters.salesOfficerId
-          : parseInt(String(filters.salesOfficerId), 10);
+        const sid =
+          typeof filters.salesOfficerId === 'number'
+            ? filters.salesOfficerId
+            : parseInt(
+                String(filters.salesOfficerId),
+                10
+              );
+
         if (!isNaN(sid)) {
           where.salesOfficerId = sid;
         }
       }
 
       if (filters.depotId) {
-        const did = typeof filters.depotId === 'number'
-          ? filters.depotId
-          : parseInt(String(filters.depotId), 10);
+        const did =
+          typeof filters.depotId === 'number'
+            ? filters.depotId
+            : parseInt(
+                String(filters.depotId),
+                10
+              );
+
         if (!isNaN(did)) {
           where.depotLineSales = {
-            some: { depotId: did },
+            some: {
+              depotId: did,
+            },
           };
         }
       }
 
-      const records = await prisma.lineSaleAccount.findMany({
-        where,
-        include: {
-          salesOfficer: { include: { role: true } },
-          priceList: true,
-          depotLineSales: { include: { depot: true } },
-          lineSaleSchemes: { include: { schemeList: true } },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+      const records =
+        await prisma.lineSaleAccount.findMany({
+          where,
+          include:
+            this.getLineSaleInclude(),
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
 
-      return records.map((r) => this.formatLineSale(r));
+      return records.map((record) =>
+        this.formatLineSale(record)
+      );
     } catch {
-      // Memory fallback for isolated test runner
-      let list = Array.from(this.memoryLineSales.values());
+      let list = Array.from(
+        this.memoryLineSales.values()
+      );
 
-      if (filters.search && filters.search.trim().length > 0) {
-        const search = filters.search.trim().toLowerCase();
+      if (
+        filters.search &&
+        filters.search.trim().length > 0
+      ) {
+        const search =
+          filters.search
+            .trim()
+            .toLowerCase();
+
         list = list.filter(
-          (l) =>
-            l.partyCode.toLowerCase().includes(search) ||
-            l.accountName.toLowerCase().includes(search) ||
-            (l.routeName && l.routeName.toLowerCase().includes(search)) ||
-            (l.vehicleNumber && l.vehicleNumber.toLowerCase().includes(search))
+          (lineSale) =>
+            lineSale.partyCode
+              .toLowerCase()
+              .includes(search) ||
+            lineSale.accountName
+              .toLowerCase()
+              .includes(search) ||
+            (
+              lineSale.routeName &&
+              lineSale.routeName
+                .toLowerCase()
+                .includes(search)
+            ) ||
+            (
+              lineSale.vehicleNumber &&
+              lineSale.vehicleNumber
+                .toLowerCase()
+                .includes(search)
+            ) ||
+            (
+              lineSale.state &&
+              lineSale.state
+                .toLowerCase()
+                .includes(search)
+            ) ||
+            (
+              lineSale.gstn &&
+              lineSale.gstn
+                .toLowerCase()
+                .includes(search)
+            ) ||
+            (
+              lineSale.contactNo &&
+              lineSale.contactNo
+                .toLowerCase()
+                .includes(search)
+            ) ||
+            (
+              lineSale.geographicalLocation &&
+              lineSale.geographicalLocation
+                .toLowerCase()
+                .includes(search)
+            )
         );
       }
 
       if (filters.isActive !== undefined) {
-        list = list.filter((l) => l.isActive === filters.isActive);
+        list = list.filter(
+          (lineSale) =>
+            lineSale.isActive ===
+            filters.isActive
+        );
       }
 
-      return list.map((l) => this.formatLineSale(l));
+      return list.map((lineSale) =>
+        this.formatLineSale(lineSale)
+      );
     }
   }
 
   /**
-   * Retrieves single Line Sale Account by numeric ID or partyCode.
+   * Retrieves a Line Sale Account by ID or Party Code.
    */
-  async getLineSaleById(idOrPartyCode: number | string): Promise<LineSaleResponseDTO> {
-    const raw = String(idOrPartyCode).trim();
-    const numericId = parseInt(raw, 10);
+  async getLineSaleById(
+    idOrPartyCode: number | string
+  ): Promise<LineSaleResponseDTO> {
+    const raw =
+      String(idOrPartyCode).trim();
+
+    const numericId =
+      parseInt(raw, 10);
 
     try {
       let record = null;
-      if (!isNaN(numericId) && numericId > 0 && String(numericId) === raw) {
-        record = await prisma.lineSaleAccount.findUnique({
-          where: { id: numericId },
-          include: {
-            salesOfficer: { include: { role: true } },
-            priceList: true,
-            depotLineSales: { include: { depot: true } },
-            lineSaleSchemes: { include: { schemeList: true } },
-          },
-        });
+
+      if (
+        !isNaN(numericId) &&
+        numericId > 0 &&
+        String(numericId) === raw
+      ) {
+        record =
+          await prisma.lineSaleAccount.findUnique({
+            where: {
+              id: numericId,
+            },
+            include:
+              this.getLineSaleInclude(),
+          });
       }
 
       if (!record) {
-        record = await prisma.lineSaleAccount.findUnique({
-          where: { partyCode: raw },
-          include: {
-            salesOfficer: { include: { role: true } },
-            priceList: true,
-            depotLineSales: { include: { depot: true } },
-            lineSaleSchemes: { include: { schemeList: true } },
-          },
-        });
+        record =
+          await prisma.lineSaleAccount.findUnique({
+            where: {
+              partyCode: raw,
+            },
+            include:
+              this.getLineSaleInclude(),
+          });
       }
 
       if (record) {
-        return this.formatLineSale(record);
+        return this.formatLineSale(
+          record
+        );
       }
     } catch {
-      // Memory fallback
+      // Memory fallback.
     }
 
-    const memoryMatch = Array.from(this.memoryLineSales.values()).find(
-      (l) => l.id === numericId || l.partyCode.toUpperCase() === raw.toUpperCase()
-    );
+    const memoryMatch =
+      Array.from(
+        this.memoryLineSales.values()
+      ).find(
+        (lineSale) =>
+          lineSale.id === numericId ||
+          lineSale.partyCode
+            .toUpperCase() ===
+            raw.toUpperCase()
+      );
 
     if (memoryMatch) {
-      return this.formatLineSale(memoryMatch);
+      return this.formatLineSale(
+        memoryMatch
+      );
     }
 
     throw new LineSaleServiceError(
@@ -752,8 +1231,7 @@ export class LineSaleService {
   }
 
   /**
-   * Creates a new Line Sale Account transactionally in MySQL.
-   * Commits Line Sale header + DepotLineSale joins + LineSaleScheme joins atomically.
+   * Creates a Line Sale Account transactionally.
    */
   async createLineSale(
     dto: CreateLineSaleDTO,
@@ -761,14 +1239,27 @@ export class LineSaleService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<LineSaleResponseDTO> {
-    // 1. Validation
-    this.validateLineSaleInput(dto, true);
+    this.validateLineSaleInput(
+      dto,
+      true
+    );
 
-    const partyCode = dto.partyCode.trim().toUpperCase();
-    const accountName = (dto.accountName || dto.partyName || '').trim();
+    const partyCode =
+      dto.partyCode
+        .trim()
+        .toUpperCase();
 
-    // 2. Resolve Sales Officer (MANDATORY & Role-enforced)
-    const rawSalesOfficer = dto.salesOfficerId || dto.assignedUser;
+    const accountName =
+      (
+        dto.accountName ||
+        dto.partyName ||
+        ''
+      ).trim();
+
+    const rawSalesOfficer =
+      dto.salesOfficerId ||
+      dto.assignedUser;
+
     if (!rawSalesOfficer) {
       throw new LineSaleServiceError(
         'Sales Officer assignment is required for Line Sale Accounts.',
@@ -776,36 +1267,82 @@ export class LineSaleService {
         'VALIDATION_ERROR'
       );
     }
-    const salesOfficer = await this.resolveSalesOfficer(rawSalesOfficer);
 
-    // 3. Resolve Price List (optional)
-    const priceList = await this.resolvePriceList(dto.priceListId);
+    const salesOfficer =
+      await this.resolveSalesOfficer(
+        rawSalesOfficer
+      );
 
-    // 4. Resolve Depots (optional or from nearestDepot)
-    const depotInputs: Array<number | string> = [];
-    if (dto.depotIds && Array.isArray(dto.depotIds)) {
-      depotInputs.push(...dto.depotIds);
-    }
-    if (dto.nearestDepot && dto.nearestDepot.trim()) {
-      depotInputs.push(dto.nearestDepot.trim());
-    }
-    const resolvedDepots = await this.resolveDepots(depotInputs);
+    const priceList =
+      await this.resolvePriceList(
+        dto.priceListId
+      );
 
-    // 5. Resolve Schemes (optional or from schemeListId)
-    const schemeInputs: Array<number | string> = [];
-    if (dto.schemeListIds && Array.isArray(dto.schemeListIds)) {
-      schemeInputs.push(...dto.schemeListIds);
-    }
-    if (dto.schemeListId && dto.schemeListId.trim()) {
-      schemeInputs.push(dto.schemeListId.trim());
-    }
-    const resolvedSchemes = await this.resolveSchemes(schemeInputs);
+    const depotInputs: Array<
+      number | string
+    > = [];
 
-    // 6. Execute Transaction in MySQL
+    if (
+      dto.depotIds &&
+      Array.isArray(dto.depotIds)
+    ) {
+      depotInputs.push(
+        ...dto.depotIds
+      );
+    }
+
+    if (
+      dto.nearestDepot &&
+      dto.nearestDepot.trim()
+    ) {
+      depotInputs.push(
+        dto.nearestDepot.trim()
+      );
+    }
+
+    const resolvedDepots =
+      await this.resolveDepots(
+        depotInputs
+      );
+
+    const schemeInputs: Array<
+      number | string
+    > = [];
+
+    if (
+      dto.schemeListIds &&
+      Array.isArray(
+        dto.schemeListIds
+      )
+    ) {
+      schemeInputs.push(
+        ...dto.schemeListIds
+      );
+    }
+
+    if (
+      dto.schemeListId &&
+      dto.schemeListId.trim()
+    ) {
+      schemeInputs.push(
+        dto.schemeListId.trim()
+      );
+    }
+
+    const resolvedSchemes =
+      await this.resolveSchemes(
+        schemeInputs
+      );
+
     try {
-      const existing = await prisma.lineSaleAccount.findUnique({
-        where: { partyCode },
-      });
+      const existing =
+        await prisma.lineSaleAccount.findUnique(
+          {
+            where: {
+              partyCode,
+            },
+          }
+        );
 
       if (existing) {
         throw new LineSaleServiceError(
@@ -815,89 +1352,218 @@ export class LineSaleService {
         );
       }
 
-      const createdRecord = await prisma.$transaction(async (tx) => {
-        // A. Create header
-        const header = await tx.lineSaleAccount.create({
-          data: {
-            partyCode,
-            accountName,
-            salesOfficerId: salesOfficer.id,
-            priceListId: priceList ? priceList.id : null,
-            vehicleNumber: dto.vehicleNumber?.trim() || null,
-            routeName: dto.routeName?.trim() || dto.geographicalLocation?.trim() || null,
-            sapCustomerCode: dto.sapCustomerCode?.trim() || null,
-            isActive: dto.isActive !== undefined ? Boolean(dto.isActive) : true,
-          },
-        });
+      const createdRecord =
+        await prisma.$transaction(
+          async (tx) => {
+            /*
+             * A. Create Line Sale header.
+             *
+             * IMPORTANT:
+             * The five new master fields are explicitly
+             * persisted here.
+             */
+            const header =
+              await tx.lineSaleAccount.create({
+                data: {
+                  partyCode,
+                  accountName,
 
-        // B. Create Depot mappings
-        for (const depot of resolvedDepots) {
-          await tx.depotLineSale.create({
-            data: {
-              lineSaleId: header.id,
-              depotId: depot.id,
-              isActive: true,
-            },
-          });
-        }
+                  salesOfficerId:
+                    salesOfficer.id,
 
-        // C. Create Scheme mappings
-        for (const scheme of resolvedSchemes) {
-          await tx.lineSaleScheme.create({
-            data: {
-              lineSaleId: header.id,
-              schemeListId: scheme.id,
-              isActive: true,
-            },
-          });
-        }
+                  priceListId:
+                    priceList
+                      ? priceList.id
+                      : null,
 
-        // D. Create Audit Log
-        try {
-          await tx.auditLog.create({
-            data: {
-              userId: creatorUserId || null,
-              action: 'LINE_SALE_CREATED',
-              entityType: 'LineSaleAccount',
-              entityId: String(header.id),
-              newValues: JSON.stringify({
-                partyCode: header.partyCode,
-                accountName: header.accountName,
-                salesOfficerId: header.salesOfficerId,
-                priceListId: header.priceListId,
-                vehicleNumber: header.vehicleNumber,
-                routeName: header.routeName,
-                sapCustomerCode: header.sapCustomerCode,
-                depotIds: resolvedDepots.map((d) => d.id),
-                schemeListIds: resolvedSchemes.map((s) => s.id),
-                isActive: header.isActive,
-              }),
-              ipAddress: ipAddress || null,
-              userAgent: userAgent || null,
-            },
-          });
-        } catch {
-          // Non-blocking audit log
-        }
+                  vehicleNumber:
+                    dto.vehicleNumber
+                      ?.trim() || null,
 
-        // Retrieve full relational record
-        return await tx.lineSaleAccount.findUnique({
-          where: { id: header.id },
-          include: {
-            salesOfficer: { include: { role: true } },
-            priceList: true,
-            depotLineSales: { include: { depot: true } },
-            lineSaleSchemes: { include: { schemeList: true } },
-          },
-        });
-      });
+                  routeName:
+                    dto.routeName?.trim() ||
+                    dto.geographicalLocation?.trim() ||
+                    null,
 
-      return this.formatLineSale(createdRecord);
+                  sapCustomerCode:
+                    dto.sapCustomerCode
+                      ?.trim() || null,
+
+                  state:
+                    dto.state?.trim() || null,
+
+                  gstn:
+                    dto.gstn?.trim() || null,
+
+                  contactNo:
+                    dto.contactNo?.trim() ||
+                    null,
+
+                  geographicalLocation:
+                    dto.geographicalLocation
+                      ?.trim() || null,
+
+                  upiQr:
+                    dto.upiQr?.trim() || null,
+
+                  isActive:
+                    dto.isActive !==
+                    undefined
+                      ? Boolean(
+                          dto.isActive
+                        )
+                      : true,
+                },
+              });
+
+            /*
+             * B. Create Depot mappings.
+             */
+            for (const depot of resolvedDepots) {
+              await tx.depotLineSale.create({
+                data: {
+                  lineSaleId:
+                    header.id,
+                  depotId:
+                    depot.id,
+                  isActive: true,
+                },
+              });
+            }
+
+            /*
+             * C. Create Scheme mappings.
+             */
+            for (const scheme of resolvedSchemes) {
+              await tx.lineSaleScheme.create({
+                data: {
+                  lineSaleId:
+                    header.id,
+                  schemeListId:
+                    scheme.id,
+                  isActive: true,
+                },
+              });
+            }
+
+            /*
+             * D. Audit log.
+             */
+            try {
+              await tx.auditLog.create({
+                data: {
+                  userId:
+                    creatorUserId ||
+                    null,
+
+                  action:
+                    'LINE_SALE_CREATED',
+
+                  entityType:
+                    'LineSaleAccount',
+
+                  entityId:
+                    String(
+                      header.id
+                    ),
+
+                  newValues:
+                    JSON.stringify({
+                      partyCode:
+                        header.partyCode,
+
+                      accountName:
+                        header.accountName,
+
+                      salesOfficerId:
+                        header.salesOfficerId,
+
+                      priceListId:
+                        header.priceListId,
+
+                      vehicleNumber:
+                        header.vehicleNumber,
+
+                      routeName:
+                        header.routeName,
+
+                      sapCustomerCode:
+                        header.sapCustomerCode,
+
+                      state:
+                        header.state,
+
+                      gstn:
+                        header.gstn,
+
+                      contactNo:
+                        header.contactNo,
+
+                      geographicalLocation:
+                        header.geographicalLocation,
+
+                      upiQr:
+                        header.upiQr,
+
+                      depotIds:
+                        resolvedDepots.map(
+                          (d) => d.id
+                        ),
+
+                      schemeListIds:
+                        resolvedSchemes.map(
+                          (s) => s.id
+                        ),
+
+                      isActive:
+                        header.isActive,
+                    }),
+
+                  ipAddress:
+                    ipAddress ||
+                    null,
+
+                  userAgent:
+                    userAgent ||
+                    null,
+                },
+              });
+            } catch {
+              // Audit logging remains non-blocking.
+            }
+
+            return tx.lineSaleAccount.findUnique(
+              {
+                where: {
+                  id: header.id,
+                },
+                include:
+                  this.getLineSaleInclude(),
+              }
+            );
+          }
+        );
+
+      if (!createdRecord) {
+        throw new LineSaleServiceError(
+          'Failed to retrieve the newly created Line Sale Account.',
+          500,
+          'CREATE_RETRIEVE_FAILED'
+        );
+      }
+
+      return this.formatLineSale(
+        createdRecord
+      );
     } catch (err: any) {
-      if (err instanceof LineSaleServiceError) {
+      if (
+        err instanceof
+        LineSaleServiceError
+      ) {
         throw err;
       }
-      if (err.code === 'P2002') {
+
+      if (err?.code === 'P2002') {
         throw new LineSaleServiceError(
           `Line Sale Account with Party Code '${partyCode}' already exists.`,
           409,
@@ -905,10 +1571,19 @@ export class LineSaleService {
         );
       }
 
-      // Fallback for memory repository
-      const memExisting = Array.from(this.memoryLineSales.values()).find(
-        (l) => l.partyCode.toUpperCase() === partyCode
-      );
+      /*
+       * Memory fallback for isolated test environments.
+       */
+      const memExisting =
+        Array.from(
+          this.memoryLineSales.values()
+        ).find(
+          (lineSale) =>
+            lineSale.partyCode
+              .toUpperCase() ===
+            partyCode
+        );
+
       if (memExisting) {
         throw new LineSaleServiceError(
           `Line Sale Account with Party Code '${partyCode}' already exists.`,
@@ -917,49 +1592,100 @@ export class LineSaleService {
         );
       }
 
-      const newId = this.nextMemoryId++;
+      const newId =
+        this.nextMemoryId++;
+
       const memRecord = {
         id: newId,
         partyCode,
         accountName,
-        salesOfficerId: salesOfficer.id,
-        priceListId: priceList ? priceList.id : null,
-        vehicleNumber: dto.vehicleNumber?.trim() || null,
-        routeName: dto.routeName?.trim() || dto.geographicalLocation?.trim() || null,
-        sapCustomerCode: dto.sapCustomerCode?.trim() || null,
-        isActive: dto.isActive !== undefined ? Boolean(dto.isActive) : true,
+
+        salesOfficerId:
+          salesOfficer.id,
+
+        priceListId:
+          priceList
+            ? priceList.id
+            : null,
+
+        vehicleNumber:
+          dto.vehicleNumber
+            ?.trim() || null,
+
+        routeName:
+          dto.routeName?.trim() ||
+          dto.geographicalLocation?.trim() ||
+          null,
+
+        sapCustomerCode:
+          dto.sapCustomerCode
+            ?.trim() || null,
+
+        state:
+          dto.state?.trim() || '',
+
+        gstn:
+          dto.gstn?.trim() || '',
+
+        contactNo:
+          dto.contactNo?.trim() ||
+          '',
+
+        geographicalLocation:
+          dto.geographicalLocation
+            ?.trim() || '',
+
+        upiQr:
+          dto.upiQr?.trim() || '',
+
+        isActive:
+          dto.isActive !== undefined
+            ? Boolean(dto.isActive)
+            : true,
+
         createdAt: new Date(),
         updatedAt: new Date(),
+
         salesOfficer,
         priceList,
-        depotLineSales: resolvedDepots.map((d, idx) => ({
-          id: idx + 1,
-          depotId: d.id,
-          lineSaleId: newId,
-          isActive: true,
-          depot: d,
-        })),
-        lineSaleSchemes: resolvedSchemes.map((s, idx) => ({
-          id: idx + 1,
-          lineSaleId: newId,
-          schemeListId: s.id,
-          isActive: true,
-          schemeList: s,
-        })),
-        state: dto.state || 'Karnataka',
-        gstn: dto.gstn || '',
-        contactNo: dto.contactNo || '',
-        geographicalLocation: dto.geographicalLocation || dto.routeName || '',
-        upiQr: dto.upiQr || '',
+
+        depotLineSales:
+          resolvedDepots.map(
+            (depot, index) => ({
+              id: index + 1,
+              depotId: depot.id,
+              lineSaleId: newId,
+              isActive: true,
+              depot,
+            })
+          ),
+
+        lineSaleSchemes:
+          resolvedSchemes.map(
+            (scheme, index) => ({
+              id: index + 1,
+              lineSaleId: newId,
+              schemeListId:
+                scheme.id,
+              isActive: true,
+              schemeList: scheme,
+            })
+          ),
       };
 
-      this.memoryLineSales.set(newId, memRecord);
-      return this.formatLineSale(memRecord);
+      this.memoryLineSales.set(
+        newId,
+        memRecord
+      );
+
+      return this.formatLineSale(
+        memRecord
+      );
     }
   }
 
   /**
-   * Updates an existing Line Sale Account transactionally in MySQL.
+   * Updates a Line Sale Account transactionally.
    */
   async updateLineSale(
     idOrPartyCode: number | string,
@@ -968,60 +1694,178 @@ export class LineSaleService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<LineSaleResponseDTO> {
-    this.validateLineSaleInput(dto, false);
+    this.validateLineSaleInput(
+      dto,
+      false
+    );
 
-    const existing = await this.getLineSaleById(idOrPartyCode);
+    const existing =
+      await this.getLineSaleById(
+        idOrPartyCode
+      );
 
-    // Sales Officer resolution if provided
-    let resolvedSalesOfficer = undefined;
-    if (dto.salesOfficerId !== undefined || dto.assignedUser !== undefined) {
-      const rawSales = dto.salesOfficerId || dto.assignedUser;
+    let resolvedSalesOfficer:
+      | {
+          id: number;
+          employeeId: string;
+          employeeName: string;
+          loginId: string;
+          role: string;
+        }
+      | undefined;
+
+    if (
+      dto.salesOfficerId !==
+        undefined ||
+      dto.assignedUser !==
+        undefined
+    ) {
+      const rawSales =
+        dto.salesOfficerId ||
+        dto.assignedUser;
+
       if (rawSales) {
-        resolvedSalesOfficer = await this.resolveSalesOfficer(rawSales);
+        resolvedSalesOfficer =
+          await this.resolveSalesOfficer(
+            rawSales
+          );
       }
     }
 
-    // Price List resolution if provided
-    let resolvedPriceList: any = undefined;
-    if (dto.priceListId !== undefined) {
-      resolvedPriceList = await this.resolvePriceList(dto.priceListId);
+    let resolvedPriceList:
+      | {
+          id: number;
+          code: string;
+          name: string;
+        }
+      | null
+      | undefined;
+
+    if (
+      dto.priceListId !==
+      undefined
+    ) {
+      resolvedPriceList =
+        await this.resolvePriceList(
+          dto.priceListId
+        );
     }
 
-    // Depots resolution if provided
-    let resolvedDepots: Array<{ id: number; code: string; name: string }> | undefined = undefined;
-    if (dto.depotIds !== undefined || dto.nearestDepot !== undefined) {
-      const depotInputs: Array<number | string> = [];
-      if (dto.depotIds && Array.isArray(dto.depotIds)) {
-        depotInputs.push(...dto.depotIds);
+    let resolvedDepots:
+      | Array<{
+          id: number;
+          code: string;
+          name: string;
+        }>
+      | undefined;
+
+    if (
+      dto.depotIds !==
+        undefined ||
+      dto.nearestDepot !==
+        undefined
+    ) {
+      const depotInputs: Array<
+        number | string
+      > = [];
+
+      if (
+        dto.depotIds &&
+        Array.isArray(
+          dto.depotIds
+        )
+      ) {
+        depotInputs.push(
+          ...dto.depotIds
+        );
       }
-      if (dto.nearestDepot && dto.nearestDepot.trim()) {
-        depotInputs.push(dto.nearestDepot.trim());
+
+      if (
+        dto.nearestDepot &&
+        dto.nearestDepot.trim()
+      ) {
+        depotInputs.push(
+          dto.nearestDepot.trim()
+        );
       }
-      resolvedDepots = await this.resolveDepots(depotInputs);
+
+      resolvedDepots =
+        await this.resolveDepots(
+          depotInputs
+        );
     }
 
-    // Schemes resolution if provided
-    let resolvedSchemes: Array<{ id: number; code: string; name: string }> | undefined = undefined;
-    if (dto.schemeListIds !== undefined || dto.schemeListId !== undefined) {
-      const schemeInputs: Array<number | string> = [];
-      if (dto.schemeListIds && Array.isArray(dto.schemeListIds)) {
-        schemeInputs.push(...dto.schemeListIds);
+    let resolvedSchemes:
+      | Array<{
+          id: number;
+          code: string;
+          name: string;
+        }>
+      | undefined;
+
+    if (
+      dto.schemeListIds !==
+        undefined ||
+      dto.schemeListId !==
+        undefined
+    ) {
+      const schemeInputs: Array<
+        number | string
+      > = [];
+
+      if (
+        dto.schemeListIds &&
+        Array.isArray(
+          dto.schemeListIds
+        )
+      ) {
+        schemeInputs.push(
+          ...dto.schemeListIds
+        );
       }
-      if (dto.schemeListId && dto.schemeListId.trim()) {
-        schemeInputs.push(dto.schemeListId.trim());
+
+      if (
+        dto.schemeListId &&
+        dto.schemeListId.trim()
+      ) {
+        schemeInputs.push(
+          dto.schemeListId.trim()
+        );
       }
-      resolvedSchemes = await this.resolveSchemes(schemeInputs);
+
+      resolvedSchemes =
+        await this.resolveSchemes(
+          schemeInputs
+        );
     }
 
-    // Party Code uniqueness check if changing
-    const newPartyCode = dto.partyCode ? dto.partyCode.trim().toUpperCase() : existing.partyCode;
+    const newPartyCode =
+      dto.partyCode
+        ? dto.partyCode
+            .trim()
+            .toUpperCase()
+        : existing.partyCode;
 
     try {
-      if (newPartyCode !== existing.partyCode) {
-        const duplicate = await prisma.lineSaleAccount.findUnique({
-          where: { partyCode: newPartyCode },
-        });
-        if (duplicate && duplicate.id !== existing.id) {
+      if (
+        newPartyCode !==
+        existing.partyCode
+      ) {
+        const duplicate =
+          await prisma.lineSaleAccount.findUnique(
+            {
+              where: {
+                partyCode:
+                  newPartyCode,
+              },
+            }
+          );
+
+        if (
+          duplicate &&
+          duplicate.id !==
+            existing.id
+        ) {
           throw new LineSaleServiceError(
             `Line Sale Account with Party Code '${newPartyCode}' already exists.`,
             409,
@@ -1030,151 +1874,509 @@ export class LineSaleService {
         }
       }
 
-      const updatedRecord = await prisma.$transaction(async (tx) => {
-        // A. Update header
-        const updateData: any = {};
-        if (dto.partyCode) updateData.partyCode = newPartyCode;
-        if (dto.accountName || dto.partyName) updateData.accountName = (dto.accountName || dto.partyName)!.trim();
-        if (resolvedSalesOfficer) updateData.salesOfficerId = resolvedSalesOfficer.id;
-        if (resolvedPriceList !== undefined) updateData.priceListId = resolvedPriceList ? resolvedPriceList.id : null;
-        if (dto.vehicleNumber !== undefined) updateData.vehicleNumber = dto.vehicleNumber?.trim() || null;
-        if (dto.routeName !== undefined || dto.geographicalLocation !== undefined) {
-          updateData.routeName = (dto.routeName || dto.geographicalLocation)?.trim() || null;
-        }
-        if (dto.sapCustomerCode !== undefined) updateData.sapCustomerCode = dto.sapCustomerCode?.trim() || null;
-        if (dto.isActive !== undefined) updateData.isActive = Boolean(dto.isActive);
+      const updatedRecord =
+        await prisma.$transaction(
+          async (tx) => {
+            /*
+             * A. Build header update.
+             */
+            const updateData: any = {};
 
-        await tx.lineSaleAccount.update({
-          where: { id: existing.id },
-          data: updateData,
-        });
+            if (dto.partyCode) {
+              updateData.partyCode =
+                newPartyCode;
+            }
 
-        // B. Reconcile Depots if provided
-        if (resolvedDepots !== undefined) {
-          await tx.depotLineSale.deleteMany({
-            where: { lineSaleId: existing.id },
-          });
+            if (
+              dto.accountName ||
+              dto.partyName
+            ) {
+              updateData.accountName =
+                (
+                  dto.accountName ||
+                  dto.partyName
+                )!.trim();
+            }
 
-          for (const depot of resolvedDepots) {
-            await tx.depotLineSale.create({
-              data: {
-                lineSaleId: existing.id,
-                depotId: depot.id,
-                isActive: true,
-              },
-            });
+            if (
+              resolvedSalesOfficer
+            ) {
+              updateData.salesOfficerId =
+                resolvedSalesOfficer.id;
+            }
+
+            if (
+              resolvedPriceList !==
+              undefined
+            ) {
+              updateData.priceListId =
+                resolvedPriceList
+                  ? resolvedPriceList.id
+                  : null;
+            }
+
+            if (
+              dto.vehicleNumber !==
+              undefined
+            ) {
+              updateData.vehicleNumber =
+                dto.vehicleNumber
+                  ?.trim() || null;
+            }
+
+            if (
+              dto.routeName !==
+                undefined ||
+              dto.geographicalLocation !==
+                undefined
+            ) {
+              updateData.routeName =
+                (
+                  dto.routeName ||
+                  dto.geographicalLocation
+                )?.trim() || null;
+            }
+
+            if (
+              dto.sapCustomerCode !==
+              undefined
+            ) {
+              updateData.sapCustomerCode =
+                dto.sapCustomerCode
+                  ?.trim() || null;
+            }
+
+            /*
+             * IMPORTANT:
+             * Persist the five master fields during UPDATE.
+             */
+            if (
+              dto.state !==
+              undefined
+            ) {
+              updateData.state =
+                dto.state.trim() ||
+                null;
+            }
+
+            if (
+              dto.gstn !==
+              undefined
+            ) {
+              updateData.gstn =
+                dto.gstn.trim() ||
+                null;
+            }
+
+            if (
+              dto.contactNo !==
+              undefined
+            ) {
+              updateData.contactNo =
+                dto.contactNo.trim() ||
+                null;
+            }
+
+            if (
+              dto.geographicalLocation !==
+              undefined
+            ) {
+              updateData.geographicalLocation =
+                dto.geographicalLocation.trim() ||
+                null;
+            }
+
+            if (
+              dto.upiQr !==
+              undefined
+            ) {
+              updateData.upiQr =
+                dto.upiQr.trim() ||
+                null;
+            }
+
+            if (
+              dto.isActive !==
+              undefined
+            ) {
+              updateData.isActive =
+                Boolean(
+                  dto.isActive
+                );
+            }
+
+            /*
+             * B. Update header.
+             */
+            await tx.lineSaleAccount.update(
+              {
+                where: {
+                  id: existing.id,
+                },
+                data: updateData,
+              }
+            );
+
+            /*
+             * C. Reconcile Depots.
+             */
+            if (
+              resolvedDepots !==
+              undefined
+            ) {
+              await tx.depotLineSale.deleteMany(
+                {
+                  where: {
+                    lineSaleId:
+                      existing.id,
+                  },
+                }
+              );
+
+              for (const depot of resolvedDepots) {
+                await tx.depotLineSale.create(
+                  {
+                    data: {
+                      lineSaleId:
+                        existing.id,
+                      depotId:
+                        depot.id,
+                      isActive: true,
+                    },
+                  }
+                );
+              }
+            }
+
+            /*
+             * D. Reconcile Schemes.
+             */
+            if (
+              resolvedSchemes !==
+              undefined
+            ) {
+              await tx.lineSaleScheme.deleteMany(
+                {
+                  where: {
+                    lineSaleId:
+                      existing.id,
+                  },
+                }
+              );
+
+              for (const scheme of resolvedSchemes) {
+                await tx.lineSaleScheme.create(
+                  {
+                    data: {
+                      lineSaleId:
+                        existing.id,
+                      schemeListId:
+                        scheme.id,
+                      isActive: true,
+                    },
+                  }
+                );
+              }
+            }
+
+            /*
+             * E. Audit log.
+             */
+            try {
+              await tx.auditLog.create({
+                data: {
+                  userId:
+                    updaterUserId ||
+                    null,
+
+                  action:
+                    'LINE_SALE_UPDATED',
+
+                  entityType:
+                    'LineSaleAccount',
+
+                  entityId:
+                    String(
+                      existing.id
+                    ),
+
+                  oldValues:
+                    JSON.stringify({
+                      partyCode:
+                        existing.partyCode,
+
+                      accountName:
+                        existing.accountName,
+
+                      salesOfficerId:
+                        existing.salesOfficerId,
+
+                      priceListId:
+                        existing.priceListId,
+
+                      depotIds:
+                        existing.depotIds,
+
+                      schemeListIds:
+                        existing.schemeListIds,
+
+                      state:
+                        existing.state,
+
+                      gstn:
+                        existing.gstn,
+
+                      contactNo:
+                        existing.contactNo,
+
+                      geographicalLocation:
+                        existing.geographicalLocation,
+
+                      upiQr:
+                        existing.upiQr,
+
+                      isActive:
+                        existing.isActive,
+                    }),
+
+                  newValues:
+                    JSON.stringify({
+                      ...updateData,
+
+                      depotIds:
+                        resolvedDepots
+                          ? resolvedDepots.map(
+                              (d) =>
+                                d.id
+                            )
+                          : existing.depotIds,
+
+                      schemeListIds:
+                        resolvedSchemes
+                          ? resolvedSchemes.map(
+                              (s) =>
+                                s.id
+                            )
+                          : existing.schemeListIds,
+                    }),
+
+                  ipAddress:
+                    ipAddress ||
+                    null,
+
+                  userAgent:
+                    userAgent ||
+                    null,
+                },
+              });
+            } catch {
+              // Audit logging remains non-blocking.
+            }
+
+            /*
+             * F. Retrieve updated relational record.
+             */
+            return tx.lineSaleAccount.findUnique(
+              {
+                where: {
+                  id: existing.id,
+                },
+                include:
+                  this.getLineSaleInclude(),
+              }
+            );
           }
-        }
+        );
 
-        // C. Reconcile Schemes if provided
-        if (resolvedSchemes !== undefined) {
-          await tx.lineSaleScheme.deleteMany({
-            where: { lineSaleId: existing.id },
-          });
+      if (!updatedRecord) {
+        throw new LineSaleServiceError(
+          `Failed to retrieve updated Line Sale Account '${idOrPartyCode}'.`,
+          500,
+          'UPDATE_RETRIEVE_FAILED'
+        );
+      }
 
-          for (const scheme of resolvedSchemes) {
-            await tx.lineSaleScheme.create({
-              data: {
-                lineSaleId: existing.id,
-                schemeListId: scheme.id,
-                isActive: true,
-              },
-            });
-          }
-        }
-
-        // D. Create Audit Log
-        try {
-          await tx.auditLog.create({
-            data: {
-              userId: updaterUserId || null,
-              action: 'LINE_SALE_UPDATED',
-              entityType: 'LineSaleAccount',
-              entityId: String(existing.id),
-              oldValues: JSON.stringify({
-                partyCode: existing.partyCode,
-                accountName: existing.accountName,
-                salesOfficerId: existing.salesOfficerId,
-                priceListId: existing.priceListId,
-                depotIds: existing.depotIds,
-                schemeListIds: existing.schemeListIds,
-                isActive: existing.isActive,
-              }),
-              newValues: JSON.stringify({
-                ...updateData,
-                depotIds: resolvedDepots ? resolvedDepots.map((d) => d.id) : existing.depotIds,
-                schemeListIds: resolvedSchemes ? resolvedSchemes.map((s) => s.id) : existing.schemeListIds,
-              }),
-              ipAddress: ipAddress || null,
-              userAgent: userAgent || null,
-            },
-          });
-        } catch {
-          // Non-blocking
-        }
-
-        return await tx.lineSaleAccount.findUnique({
-          where: { id: existing.id },
-          include: {
-            salesOfficer: { include: { role: true } },
-            priceList: true,
-            depotLineSales: { include: { depot: true } },
-            lineSaleSchemes: { include: { schemeList: true } },
-          },
-        });
-      });
-
-      return this.formatLineSale(updatedRecord);
+      return this.formatLineSale(
+        updatedRecord
+      );
     } catch (err: any) {
-      if (err instanceof LineSaleServiceError) {
+      if (
+        err instanceof
+        LineSaleServiceError
+      ) {
         throw err;
       }
 
-      // Memory fallback
-      const mem = this.memoryLineSales.get(existing.id);
-      if (mem) {
-        if (dto.partyCode) mem.partyCode = newPartyCode;
-        if (dto.accountName || dto.partyName) mem.accountName = (dto.accountName || dto.partyName)!.trim();
-        if (resolvedSalesOfficer) {
-          mem.salesOfficerId = resolvedSalesOfficer.id;
-          mem.salesOfficer = resolvedSalesOfficer;
-        }
-        if (resolvedPriceList !== undefined) {
-          mem.priceListId = resolvedPriceList ? resolvedPriceList.id : null;
-          mem.priceList = resolvedPriceList;
-        }
-        if (dto.vehicleNumber !== undefined) mem.vehicleNumber = dto.vehicleNumber?.trim() || null;
-        if (dto.routeName !== undefined || dto.geographicalLocation !== undefined) {
-          mem.routeName = (dto.routeName || dto.geographicalLocation)?.trim() || null;
-        }
-        if (dto.sapCustomerCode !== undefined) mem.sapCustomerCode = dto.sapCustomerCode?.trim() || null;
-        if (dto.isActive !== undefined) mem.isActive = Boolean(dto.isActive);
-        if (resolvedDepots !== undefined) {
-          mem.depotLineSales = resolvedDepots.map((d, idx) => ({
-            id: idx + 1,
-            depotId: d.id,
-            lineSaleId: existing.id,
-            isActive: true,
-            depot: d,
-          }));
-        }
-        if (resolvedSchemes !== undefined) {
-          mem.lineSaleSchemes = resolvedSchemes.map((s, idx) => ({
-            id: idx + 1,
-            lineSaleId: existing.id,
-            schemeListId: s.id,
-            isActive: true,
-            schemeList: s,
-          }));
-        }
-        if (dto.state) mem.state = dto.state;
-        if (dto.gstn !== undefined) mem.gstn = dto.gstn;
-        if (dto.contactNo !== undefined) mem.contactNo = dto.contactNo;
-        if (dto.geographicalLocation !== undefined) mem.geographicalLocation = dto.geographicalLocation;
-        if (dto.upiQr !== undefined) mem.upiQr = dto.upiQr;
-        mem.updatedAt = new Date();
+      /*
+       * Memory fallback.
+       */
+      const mem =
+        this.memoryLineSales.get(
+          existing.id
+        );
 
-        return this.formatLineSale(mem);
+      if (mem) {
+        if (dto.partyCode) {
+          mem.partyCode =
+            newPartyCode;
+        }
+
+        if (
+          dto.accountName ||
+          dto.partyName
+        ) {
+          mem.accountName =
+            (
+              dto.accountName ||
+              dto.partyName
+            )!.trim();
+        }
+
+        if (
+          resolvedSalesOfficer
+        ) {
+          mem.salesOfficerId =
+            resolvedSalesOfficer.id;
+
+          mem.salesOfficer =
+            resolvedSalesOfficer;
+        }
+
+        if (
+          resolvedPriceList !==
+          undefined
+        ) {
+          mem.priceListId =
+            resolvedPriceList
+              ? resolvedPriceList.id
+              : null;
+
+          mem.priceList =
+            resolvedPriceList;
+        }
+
+        if (
+          dto.vehicleNumber !==
+          undefined
+        ) {
+          mem.vehicleNumber =
+            dto.vehicleNumber
+              ?.trim() || null;
+        }
+
+        if (
+          dto.routeName !==
+            undefined ||
+          dto.geographicalLocation !==
+            undefined
+        ) {
+          mem.routeName =
+            (
+              dto.routeName ||
+              dto.geographicalLocation
+            )?.trim() || null;
+        }
+
+        if (
+          dto.sapCustomerCode !==
+          undefined
+        ) {
+          mem.sapCustomerCode =
+            dto.sapCustomerCode
+              ?.trim() || null;
+        }
+
+        if (
+          dto.state !==
+          undefined
+        ) {
+          mem.state =
+            dto.state.trim();
+        }
+
+        if (
+          dto.gstn !==
+          undefined
+        ) {
+          mem.gstn =
+            dto.gstn.trim();
+        }
+
+        if (
+          dto.contactNo !==
+          undefined
+        ) {
+          mem.contactNo =
+            dto.contactNo.trim();
+        }
+
+        if (
+          dto.geographicalLocation !==
+          undefined
+        ) {
+          mem.geographicalLocation =
+            dto.geographicalLocation.trim();
+        }
+
+        if (
+          dto.upiQr !==
+          undefined
+        ) {
+          mem.upiQr =
+            dto.upiQr.trim();
+        }
+
+        if (
+          dto.isActive !==
+          undefined
+        ) {
+          mem.isActive =
+            Boolean(
+              dto.isActive
+            );
+        }
+
+        if (
+          resolvedDepots !==
+          undefined
+        ) {
+          mem.depotLineSales =
+            resolvedDepots.map(
+              (depot, index) => ({
+                id: index + 1,
+                depotId: depot.id,
+                lineSaleId:
+                  existing.id,
+                isActive: true,
+                depot,
+              })
+            );
+        }
+
+        if (
+          resolvedSchemes !==
+          undefined
+        ) {
+          mem.lineSaleSchemes =
+            resolvedSchemes.map(
+              (scheme, index) => ({
+                id: index + 1,
+                lineSaleId:
+                  existing.id,
+                schemeListId:
+                  scheme.id,
+                isActive: true,
+                schemeList: scheme,
+              })
+            );
+        }
+
+        mem.updatedAt =
+          new Date();
+
+        return this.formatLineSale(
+          mem
+        );
       }
 
       throw new LineSaleServiceError(
@@ -1186,7 +2388,7 @@ export class LineSaleService {
   }
 
   /**
-   * Toggles Line Sale Account active status (non-destructive lifecycle).
+   * Toggles active/inactive status.
    */
   async updateLineSaleStatus(
     idOrPartyCode: number | string,
@@ -1195,45 +2397,94 @@ export class LineSaleService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<LineSaleResponseDTO> {
-    const existing = await this.getLineSaleById(idOrPartyCode);
-    const newStatus = Boolean(isActive);
+    const existing =
+      await this.getLineSaleById(
+        idOrPartyCode
+      );
+
+    const newStatus =
+      Boolean(isActive);
 
     try {
-      const updated = await prisma.lineSaleAccount.update({
-        where: { id: existing.id },
-        data: { isActive: newStatus },
-        include: {
-          salesOfficer: { include: { role: true } },
-          priceList: true,
-          depotLineSales: { include: { depot: true } },
-          lineSaleSchemes: { include: { schemeList: true } },
-        },
-      });
+      const updated =
+        await prisma.lineSaleAccount.update(
+          {
+            where: {
+              id: existing.id,
+            },
+            data: {
+              isActive:
+                newStatus,
+            },
+            include:
+              this.getLineSaleInclude(),
+          }
+        );
 
       try {
         await prisma.auditLog.create({
           data: {
-            userId: updaterUserId || null,
-            action: newStatus ? 'LINE_SALE_ACTIVATED' : 'LINE_SALE_DEACTIVATED',
-            entityType: 'LineSaleAccount',
-            entityId: String(existing.id),
-            oldValues: JSON.stringify({ isActive: existing.isActive }),
-            newValues: JSON.stringify({ isActive: newStatus }),
-            ipAddress: ipAddress || null,
-            userAgent: userAgent || null,
+            userId:
+              updaterUserId ||
+              null,
+
+            action:
+              newStatus
+                ? 'LINE_SALE_ACTIVATED'
+                : 'LINE_SALE_DEACTIVATED',
+
+            entityType:
+              'LineSaleAccount',
+
+            entityId:
+              String(
+                existing.id
+              ),
+
+            oldValues:
+              JSON.stringify({
+                isActive:
+                  existing.isActive,
+              }),
+
+            newValues:
+              JSON.stringify({
+                isActive:
+                  newStatus,
+              }),
+
+            ipAddress:
+              ipAddress ||
+              null,
+
+            userAgent:
+              userAgent ||
+              null,
           },
         });
       } catch {
-        // Non-blocking
+        // Non-blocking audit log.
       }
 
-      return this.formatLineSale(updated);
+      return this.formatLineSale(
+        updated
+      );
     } catch {
-      const mem = this.memoryLineSales.get(existing.id);
+      const mem =
+        this.memoryLineSales.get(
+          existing.id
+        );
+
       if (mem) {
-        mem.isActive = newStatus;
-        mem.updatedAt = new Date();
-        return this.formatLineSale(mem);
+        mem.isActive =
+          newStatus;
+
+        mem.updatedAt =
+          new Date();
+
+        return this.formatLineSale(
+          mem
+        );
       }
 
       throw new LineSaleServiceError(
@@ -1249,71 +2500,143 @@ export class LineSaleService {
    */
   async updateLineSaleDepots(
     idOrPartyCode: number | string,
-    depotIdentifiers: Array<number | string>,
+    depotIdentifiers: Array<
+      number | string
+    >,
     updaterUserId?: number,
     ipAddress?: string,
     userAgent?: string
   ): Promise<LineSaleResponseDTO> {
-    const existing = await this.getLineSaleById(idOrPartyCode);
-    const resolvedDepots = await this.resolveDepots(depotIdentifiers);
+    const existing =
+      await this.getLineSaleById(
+        idOrPartyCode
+      );
+
+    const resolvedDepots =
+      await this.resolveDepots(
+        depotIdentifiers
+      );
 
     try {
-      const updated = await prisma.$transaction(async (tx) => {
-        await tx.depotLineSale.deleteMany({
-          where: { lineSaleId: existing.id },
-        });
+      const updated =
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.depotLineSale.deleteMany(
+              {
+                where: {
+                  lineSaleId:
+                    existing.id,
+                },
+              }
+            );
 
-        for (const depot of resolvedDepots) {
-          await tx.depotLineSale.create({
-            data: {
-              lineSaleId: existing.id,
-              depotId: depot.id,
-              isActive: true,
-            },
-          });
-        }
+            for (const depot of resolvedDepots) {
+              await tx.depotLineSale.create(
+                {
+                  data: {
+                    lineSaleId:
+                      existing.id,
+                    depotId:
+                      depot.id,
+                    isActive: true,
+                  },
+                }
+              );
+            }
 
-        try {
-          await tx.auditLog.create({
-            data: {
-              userId: updaterUserId || null,
-              action: 'LINE_SALE_DEPOTS_UPDATED',
-              entityType: 'LineSaleAccount',
-              entityId: String(existing.id),
-              oldValues: JSON.stringify({ depotIds: existing.depotIds }),
-              newValues: JSON.stringify({ depotIds: resolvedDepots.map((d) => d.id) }),
-              ipAddress: ipAddress || null,
-              userAgent: userAgent || null,
-            },
-          });
-        } catch {
-          // Non-blocking
-        }
+            try {
+              await tx.auditLog.create({
+                data: {
+                  userId:
+                    updaterUserId ||
+                    null,
 
-        return await tx.lineSaleAccount.findUnique({
-          where: { id: existing.id },
-          include: {
-            salesOfficer: { include: { role: true } },
-            priceList: true,
-            depotLineSales: { include: { depot: true } },
-            lineSaleSchemes: { include: { schemeList: true } },
-          },
-        });
-      });
+                  action:
+                    'LINE_SALE_DEPOTS_UPDATED',
 
-      return this.formatLineSale(updated);
+                  entityType:
+                    'LineSaleAccount',
+
+                  entityId:
+                    String(
+                      existing.id
+                    ),
+
+                  oldValues:
+                    JSON.stringify({
+                      depotIds:
+                        existing.depotIds,
+                    }),
+
+                  newValues:
+                    JSON.stringify({
+                      depotIds:
+                        resolvedDepots.map(
+                          (d) => d.id
+                        ),
+                    }),
+
+                  ipAddress:
+                    ipAddress ||
+                    null,
+
+                  userAgent:
+                    userAgent ||
+                    null,
+                },
+              });
+            } catch {
+              // Non-blocking.
+            }
+
+            return tx.lineSaleAccount.findUnique(
+              {
+                where: {
+                  id: existing.id,
+                },
+                include:
+                  this.getLineSaleInclude(),
+              }
+            );
+          }
+        );
+
+      if (!updated) {
+        throw new LineSaleServiceError(
+          `Failed to retrieve updated Line Sale Account '${idOrPartyCode}'.`,
+          500,
+          'DEPOT_UPDATE_RETRIEVE_FAILED'
+        );
+      }
+
+      return this.formatLineSale(
+        updated
+      );
     } catch {
-      const mem = this.memoryLineSales.get(existing.id);
+      const mem =
+        this.memoryLineSales.get(
+          existing.id
+        );
+
       if (mem) {
-        mem.depotLineSales = resolvedDepots.map((d, idx) => ({
-          id: idx + 1,
-          depotId: d.id,
-          lineSaleId: existing.id,
-          isActive: true,
-          depot: d,
-        }));
-        mem.updatedAt = new Date();
-        return this.formatLineSale(mem);
+        mem.depotLineSales =
+          resolvedDepots.map(
+            (depot, index) => ({
+              id: index + 1,
+              depotId: depot.id,
+              lineSaleId:
+                existing.id,
+              isActive: true,
+              depot,
+            })
+          );
+
+        mem.updatedAt =
+          new Date();
+
+        return this.formatLineSale(
+          mem
+        );
       }
 
       throw new LineSaleServiceError(
@@ -1329,71 +2652,144 @@ export class LineSaleService {
    */
   async updateLineSaleSchemes(
     idOrPartyCode: number | string,
-    schemeIdentifiers: Array<number | string>,
+    schemeIdentifiers: Array<
+      number | string
+    >,
     updaterUserId?: number,
     ipAddress?: string,
     userAgent?: string
   ): Promise<LineSaleResponseDTO> {
-    const existing = await this.getLineSaleById(idOrPartyCode);
-    const resolvedSchemes = await this.resolveSchemes(schemeIdentifiers);
+    const existing =
+      await this.getLineSaleById(
+        idOrPartyCode
+      );
+
+    const resolvedSchemes =
+      await this.resolveSchemes(
+        schemeIdentifiers
+      );
 
     try {
-      const updated = await prisma.$transaction(async (tx) => {
-        await tx.lineSaleScheme.deleteMany({
-          where: { lineSaleId: existing.id },
-        });
+      const updated =
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.lineSaleScheme.deleteMany(
+              {
+                where: {
+                  lineSaleId:
+                    existing.id,
+                },
+              }
+            );
 
-        for (const scheme of resolvedSchemes) {
-          await tx.lineSaleScheme.create({
-            data: {
-              lineSaleId: existing.id,
-              schemeListId: scheme.id,
-              isActive: true,
-            },
-          });
-        }
+            for (const scheme of resolvedSchemes) {
+              await tx.lineSaleScheme.create(
+                {
+                  data: {
+                    lineSaleId:
+                      existing.id,
+                    schemeListId:
+                      scheme.id,
+                    isActive: true,
+                  },
+                }
+              );
+            }
 
-        try {
-          await tx.auditLog.create({
-            data: {
-              userId: updaterUserId || null,
-              action: 'LINE_SALE_SCHEMES_UPDATED',
-              entityType: 'LineSaleAccount',
-              entityId: String(existing.id),
-              oldValues: JSON.stringify({ schemeListIds: existing.schemeListIds }),
-              newValues: JSON.stringify({ schemeListIds: resolvedSchemes.map((s) => s.id) }),
-              ipAddress: ipAddress || null,
-              userAgent: userAgent || null,
-            },
-          });
-        } catch {
-          // Non-blocking
-        }
+            try {
+              await tx.auditLog.create({
+                data: {
+                  userId:
+                    updaterUserId ||
+                    null,
 
-        return await tx.lineSaleAccount.findUnique({
-          where: { id: existing.id },
-          include: {
-            salesOfficer: { include: { role: true } },
-            priceList: true,
-            depotLineSales: { include: { depot: true } },
-            lineSaleSchemes: { include: { schemeList: true } },
-          },
-        });
-      });
+                  action:
+                    'LINE_SALE_SCHEMES_UPDATED',
 
-      return this.formatLineSale(updated);
+                  entityType:
+                    'LineSaleAccount',
+
+                  entityId:
+                    String(
+                      existing.id
+                    ),
+
+                  oldValues:
+                    JSON.stringify({
+                      schemeListIds:
+                        existing.schemeListIds,
+                    }),
+
+                  newValues:
+                    JSON.stringify({
+                      schemeListIds:
+                        resolvedSchemes.map(
+                          (s) => s.id
+                        ),
+                    }),
+
+                  ipAddress:
+                    ipAddress ||
+                    null,
+
+                  userAgent:
+                    userAgent ||
+                    null,
+                },
+              });
+            } catch {
+              // Non-blocking.
+            }
+
+            return tx.lineSaleAccount.findUnique(
+              {
+                where: {
+                  id: existing.id,
+                },
+                include:
+                  this.getLineSaleInclude(),
+              }
+            );
+          }
+        );
+
+      if (!updated) {
+        throw new LineSaleServiceError(
+          `Failed to retrieve updated Line Sale Account '${idOrPartyCode}'.`,
+          500,
+          'SCHEME_UPDATE_RETRIEVE_FAILED'
+        );
+      }
+
+      return this.formatLineSale(
+        updated
+      );
     } catch {
-      const mem = this.memoryLineSales.get(existing.id);
+      const mem =
+        this.memoryLineSales.get(
+          existing.id
+        );
+
       if (mem) {
-        mem.lineSaleSchemes = resolvedSchemes.map((s, idx) => ({
-          id: idx + 1,
-          lineSaleId: existing.id,
-          schemeListId: s.id,
-          isActive: true,
-          schemeList: s,
-        }));
-        mem.updatedAt = new Date();
-        return this.formatLineSale(mem);
+        mem.lineSaleSchemes =
+          resolvedSchemes.map(
+            (scheme, index) => ({
+              id: index + 1,
+              lineSaleId:
+                existing.id,
+              schemeListId:
+                scheme.id,
+              isActive: true,
+              schemeList: scheme,
+            })
+          );
+
+        mem.updatedAt =
+          new Date();
+
+        return this.formatLineSale(
+          mem
+        );
       }
 
       throw new LineSaleServiceError(
@@ -1405,4 +2801,5 @@ export class LineSaleService {
   }
 }
 
-export const lineSaleService = new LineSaleService();
+export const lineSaleService =
+  new LineSaleService();

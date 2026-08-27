@@ -418,10 +418,20 @@ export class GoodsReturnService {
        * Respect the logged-in user's line-sale assignment
        * when the authenticated user is a Sales Officer.
        */
+      const currentUserRoleCode =
+        typeof currentUser?.role === 'string'
+          ? currentUser.role.trim().toUpperCase().replace(/\s+/g, '_')
+          : String(currentUser?.role?.code || '').trim().toUpperCase();
+
+      const currentUserRoleName =
+        typeof currentUser?.role === 'string'
+          ? currentUser.role.trim().toLowerCase()
+          : String(currentUser?.role?.name || '').trim().toLowerCase();
+
       if (
         currentUser &&
-        (currentUser.role?.code === 'SALES_OFFICER' ||
-          currentUser.role?.name === 'Sales Officer')
+        (currentUserRoleCode === 'SALES_OFFICER' ||
+          currentUserRoleName === 'sales officer')
       ) {
         const salesOfficerId = Number(
           currentUser.id
@@ -605,12 +615,24 @@ export class GoodsReturnService {
       );
     }
 
+    const currentUserRoleCode =
+      typeof currentUser?.role === 'string'
+        ? currentUser.role.trim().toUpperCase().replace(/\s+/g, '_')
+        : String(currentUser?.role?.code || '').trim().toUpperCase();
+
+    const currentUserRoleName =
+      typeof currentUser?.role === 'string'
+        ? currentUser.role.trim().toLowerCase()
+        : String(currentUser?.role?.name || '').trim().toLowerCase();
+
+    const isSalesOfficer =
+      currentUserRoleCode === 'SALES_OFFICER' ||
+      currentUserRoleName === 'sales officer';
+
     if (
       currentUser &&
-      (currentUser.role?.code === 'SALES_OFFICER' ||
-        currentUser.role?.name === 'Sales Officer') &&
-      goodsIssue.lineSale.salesOfficerId !==
-        Number(currentUser.id)
+      isSalesOfficer &&
+      goodsIssue.lineSale.salesOfficerId !== Number(currentUser.id)
     ) {
       throw new GoodsReturnServiceError(
         'You are not authorized to create a Goods Return for this Goods Issue.',

@@ -47,6 +47,18 @@ export interface UpdateUserPayload {
   isActive?: boolean;
 }
 
+interface UserListResponse {
+  success: boolean;
+  data: UserApiResponse[];
+  count?: number;
+}
+
+interface UserResponse {
+  success: boolean;
+  message?: string;
+  data: UserApiResponse;
+}
+
 function mapApiUserToFrontendUser(apiUser: UserApiResponse): User {
   return {
     userId: apiUser.userId,
@@ -65,61 +77,92 @@ function mapApiUserToFrontendUser(apiUser: UserApiResponse): User {
 
 export const userService = {
   /**
-   * Fetch all users with optional filtering
+   * Fetch users from the backend.
+   *
+   * IMPORTANT:
+   * Depot-scoped authorization is enforced by the backend.
+   * This service does not attempt to determine or override
+   * the authenticated user's depot.
    */
   async getUsers(params?: UserFilterParams): Promise<User[]> {
-    const response = await apiClient.get<{ success: boolean; data: UserApiResponse[] }>('/users', {
+    const response = await apiClient.get<UserListResponse>('/users', {
       params,
     });
+
     return (response.data.data || []).map(mapApiUserToFrontendUser);
   },
 
   /**
-   * Fetch a single user by database ID or employeeId
+   * Fetch one user by database ID or employee ID.
    */
   async getUser(id: number | string): Promise<User> {
-    const response = await apiClient.get<{ success: boolean; data: UserApiResponse }>(`/users/${id}`);
+    const response = await apiClient.get<UserResponse>(
+      `/users/${encodeURIComponent(String(id))}`
+    );
+
     return mapApiUserToFrontendUser(response.data.data);
   },
 
   /**
-   * Create a new employee user in MySQL
+   * Create a new user.
+   *
+   * The backend remains authoritative for:
+   * - role
+   * - depot assignment
+   * - uniqueness
+   * - password hashing
+   * - account status
    */
   async createUser(payload: CreateUserPayload): Promise<User> {
     const body = {
       ...payload,
-      loginId: payload.loginId || payload.username,
+      loginId: payload.loginId?.trim() || payload.username?.trim(),
     };
-    const response = await apiClient.post<{ success: boolean; message: string; data: UserApiResponse }>(
+
+    const response = await apiClient.post<UserResponse>(
       '/users',
       body
     );
+
     return mapApiUserToFrontendUser(response.data.data);
   },
 
   /**
-   * Update an existing employee profile
+   * Update an existing user.
    */
-  async updateUser(id: number | string, payload: UpdateUserPayload): Promise<User> {
+  async updateUser(
+    id: number | string,
+    payload: UpdateUserPayload
+  ): Promise<User> {
     const body = {
       ...payload,
-      loginId: payload.loginId || payload.username,
+      loginId: payload.loginId?.trim() || payload.username?.trim(),
     };
-    const response = await apiClient.put<{ success: boolean; message: string; data: UserApiResponse }>(
-      `/users/${id}`,
+
+    const response = await apiClient.put<UserResponse>(
+      `/users/${encodeURIComponent(String(id))}`,
       body
     );
+
     return mapApiUserToFrontendUser(response.data.data);
   },
 
   /**
-   * Activate or deactivate a user account
+   * Activate or deactivate a user account.
    */
-  async updateUserStatus(id: number | string, isActive: boolean): Promise<User> {
-    const response = await apiClient.patch<{ success: boolean; message: string; data: UserApiResponse }>(
-      `/users/${id}/status`,
-      { isActive }
+  async updateUserStatus(
+    id: number | string,
+    isActive: boolean
+  ): Promise<User> {
+    const response = await apiClient.patch<UserResponse>(
+      `/users/${encodeURIComponent(String(id))}/status`,
+      {
+        isActive,
+      }
     );
+
     return mapApiUserToFrontendUser(response.data.data);
   },
 };
+
+export default userService;

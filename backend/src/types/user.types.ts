@@ -11,7 +11,7 @@ export interface CreateUserDTO {
   employeeId: string;
   employeeName: string;
   loginId: string;
-  username?: string; // alias for loginId from legacy frontend
+  username?: string;
   password: string;
   role: string;
   depotId?: number | null;

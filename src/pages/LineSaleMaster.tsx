@@ -161,7 +161,11 @@ export const LineSaleMaster: React.FC = () => {
     setUpiQr(acc.upiQr || '');
     setIsActive(acc.isActive);
     setSchemeListId(acc.schemeListId || acc.schemes?.[0]?.code || schemeLists[0]?.id || '');
-    setPriceListId(acc.priceListId || acc.priceList?.code || priceLists[0]?.id || 'PL-STANDARD');
+    setPriceListId(
+  acc.priceListId != null
+    ? String(acc.priceListId)
+    : acc.priceList?.code || String(priceLists[0]?.id || 'PL-STANDARD')
+);
     setAssignedUser(acc.assignedUser || acc.salesOfficer?.loginId || users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
     setIsFormModalOpen(true);
   };

@@ -12,7 +12,11 @@ export class UserServiceError extends Error {
   statusCode: number;
   code: string;
 
-  constructor(message: string, statusCode = 400, code = 'USER_SERVICE_ERROR') {
+  constructor(
+    message: string,
+    statusCode = 400,
+    code = 'USER_SERVICE_ERROR'
+  ) {
     super(message);
     this.name = 'UserServiceError';
     this.statusCode = statusCode;
@@ -25,83 +29,10 @@ function normalizeRoleString(role: string): string {
 }
 
 export class UserService {
-  private memoryUsers: Map<number, any> = new Map();
-
-  constructor() {
-    this.initDefaultMemorySeeds();
-  }
-
-  private initDefaultMemorySeeds() {
-    const seedAdmin = {
-      id: 1,
-      roleId: 1,
-      depotId: null,
-      employeeId: 'EMP-001',
-      employeeName: 'System Administrator',
-      loginId: 'admin',
-      passwordHash: '$2b$12$4eIqZ6P3jCgEeVJd9eE94u8K4s7P.uE6jL0o1k6m4l9n4p1r3s5t7',
-      phone: '+91 99000 00001',
-      isActive: true,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date(),
-      role: { id: 1, code: 'SUPER_ADMIN', name: 'Super Admin' },
-      depot: null,
-    };
-    const seedDepotPerson = {
-      id: 2,
-      roleId: 2,
-      depotId: 1,
-      employeeId: 'EMP-002',
-      employeeName: 'Depot Incharge Bangalore',
-      loginId: 'depot_blr',
-      passwordHash: '$2b$12$4eIqZ6P3jCgEeVJd9eE94u8K4s7P.uE6jL0o1k6m4l9n4p1r3s5t7',
-      phone: '+91 99000 00002',
-      isActive: true,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date(),
-      role: { id: 2, code: 'DEPOT_PERSON', name: 'Depot Person' },
-      depot: { id: 1, code: 'DEPOT-BLR-01', name: 'Central Depot Bangalore' },
-    };
-    const seedSalesOfficer1 = {
-      id: 3,
-      roleId: 3,
-      depotId: 1,
-      employeeId: 'EMP-003',
-      employeeName: 'Ramesh Kumar',
-      loginId: 'sales',
-      passwordHash: '$2b$12$4eIqZ6P3jCgEeVJd9eE94u8K4s7P.uE6jL0o1k6m4l9n4p1r3s5t7',
-      phone: '+91 99000 00003',
-      isActive: true,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date(),
-      role: { id: 3, code: 'SALES_OFFICER', name: 'Sales Officer' },
-      depot: { id: 1, code: 'DEPOT-BLR-01', name: 'Central Depot Bangalore' },
-    };
-    const seedSalesOfficer2 = {
-      id: 4,
-      roleId: 3,
-      depotId: 2,
-      employeeId: 'EMP-004',
-      employeeName: 'Sunil Rao',
-      loginId: 'sales_officer_two',
-      passwordHash: '$2b$12$4eIqZ6P3jCgEeVJd9eE94u8K4s7P.uE6jL0o1k6m4l9n4p1r3s5t7',
-      phone: '+91 99000 00004',
-      isActive: true,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date(),
-      role: { id: 3, code: 'SALES_OFFICER', name: 'Sales Officer' },
-      depot: { id: 2, code: 'DEPOT-MYS-01', name: 'Mysore Regional Depot' },
-    };
-
-    this.memoryUsers.set(seedAdmin.id, seedAdmin);
-    this.memoryUsers.set(seedDepotPerson.id, seedDepotPerson);
-    this.memoryUsers.set(seedSalesOfficer1.id, seedSalesOfficer1);
-    this.memoryUsers.set(seedSalesOfficer2.id, seedSalesOfficer2);
-  }
-
   /**
-   * Transforms a database User record (with relations) into a sanitized SafeUser response.
-   * Strips passwordHash, password, and sensitive internal fields.
+   * Convert a Prisma User record into the safe API representation.
+   *
+   * Password hashes and other sensitive fields are never returned.
    */
   private formatSafeUser(user: {
     id: number;
@@ -114,8 +45,16 @@ export class UserService {
     updatedAt: Date;
     roleId: number;
     depotId: number | null;
-    role: { id: number; code: string; name: string };
-    depot: { id: number; code: string; name: string } | null;
+    role: {
+      id: number;
+      code: string;
+      name: string;
+    };
+    depot: {
+      id: number;
+      code: string;
+      name: string;
+    } | null;
   }): UserResponseDTO {
     return {
       userId: user.id,
@@ -134,81 +73,102 @@ export class UserService {
   }
 
   /**
-   * Resolves a role string (name or code or numeric id) to an authoritative database Role record.
+   * Resolve a role from:
+   * - numeric database ID
+   * - role name
+   * - role code
+   *
+   * The database is authoritative.
    */
   private async resolveRole(roleIdentifier: string | number) {
-    const KNOWN_ROLES = [
-      { id: 1, code: 'SUPER_ADMIN', name: 'Super Admin' },
-      { id: 2, code: 'DEPOT_PERSON', name: 'Depot Person' },
-      { id: 3, code: 'SALES_OFFICER', name: 'Sales Officer' },
-    ];
-
-    let roles = KNOWN_ROLES;
-    try {
-      const dbRoles = await prisma.role.findMany();
-      if (dbRoles && dbRoles.length > 0) {
-        roles = dbRoles;
-      }
-    } catch {
-      // Fallback to foundational roles during test isolation or DB boot
+    if (
+      roleIdentifier === undefined ||
+      roleIdentifier === null ||
+      String(roleIdentifier).trim() === ''
+    ) {
+      return null;
     }
+
+    const roles = await prisma.role.findMany();
 
     if (typeof roleIdentifier === 'number') {
-      const matchedId = roles.find((r) => r.id === roleIdentifier);
-      if (matchedId) return matchedId;
+      return roles.find((role) => role.id === roleIdentifier) || null;
     }
 
-    const identifierStr = String(roleIdentifier).trim();
-    const normalized = normalizeRoleString(identifierStr);
+    const identifier = String(roleIdentifier).trim();
+    const normalized = normalizeRoleString(identifier);
 
-    const matched = roles.find(
-      (r) =>
-        r.name.toLowerCase() === identifierStr.toLowerCase() ||
-        r.code.toLowerCase() === identifierStr.toLowerCase() ||
-        normalizeRoleString(r.name) === normalized ||
-        normalizeRoleString(r.code) === normalized
+    return (
+      roles.find(
+        (role) =>
+          role.name.toLowerCase() === identifier.toLowerCase() ||
+          role.code.toLowerCase() === identifier.toLowerCase() ||
+          normalizeRoleString(role.name) === normalized ||
+          normalizeRoleString(role.code) === normalized
+      ) || null
     );
-
-    return matched || null;
   }
 
   /**
-   * Retrieves all users from the database matching optional filters.
+   * Retrieve users from MySQL.
+   *
+   * IMPORTANT:
+   * There is deliberately no in-memory fallback.
+   * The database is the single source of truth.
    */
   async getUsers(filters: UserFilterQuery = {}): Promise<UserResponseDTO[]> {
     const where: any = {};
 
-    // 1. Search across employeeName, loginId, employeeId
-    if (filters.search && filters.search.trim().length > 0) {
+    if (filters.search?.trim()) {
       const search = filters.search.trim();
+
       where.OR = [
-        { employeeName: { contains: search } },
-        { loginId: { contains: search } },
-        { employeeId: { contains: search } },
+        {
+          employeeName: {
+            contains: search,
+          },
+        },
+        {
+          loginId: {
+            contains: search,
+          },
+        },
+        {
+          employeeId: {
+            contains: search,
+          },
+        },
       ];
     }
 
-    // 2. Filter by Role (name, code, or ID)
     if (filters.role && filters.role !== 'All') {
       const resolvedRole = await this.resolveRole(filters.role);
-      if (resolvedRole) {
-        where.roleId = resolvedRole.id;
-      } else {
-        where.role = {
-          OR: [
-            { name: { contains: filters.role } },
-            { code: { contains: filters.role } },
-          ],
-        };
+
+      if (!resolvedRole) {
+        throw new UserServiceError(
+          `Role '${filters.role}' does not exist.`,
+          400,
+          'INVALID_ROLE'
+        );
       }
+
+      where.roleId = resolvedRole.id;
     }
 
-    // 3. Filter by Depot
     if (filters.depotId !== undefined && filters.depotId !== null) {
-      where.depotId = Number(filters.depotId);
+      const depotId = Number(filters.depotId);
+
+      if (!Number.isInteger(depotId) || depotId <= 0) {
+        throw new UserServiceError(
+          'Depot ID must be a valid positive integer.',
+          400,
+          'INVALID_DEPOT_ID'
+        );
+      }
+
+      where.depotId = depotId;
     }
 
-    // 4. Filter by Active status
     if (filters.isActive !== undefined) {
       where.isActive = filters.isActive;
     }
@@ -225,84 +185,99 @@ export class UserService {
         },
       });
 
-      return users.map((u) => this.formatSafeUser(u));
-    } catch {
-      // Memory fallback for isolated test runner
-      let list = Array.from(this.memoryUsers.values());
-      if (filters.search && filters.search.trim().length > 0) {
-        const search = filters.search.trim().toLowerCase();
-        list = list.filter(
-          (u) =>
-            u.employeeName.toLowerCase().includes(search) ||
-            u.loginId.toLowerCase().includes(search) ||
-            u.employeeId.toLowerCase().includes(search)
-        );
-      }
-      if (filters.isActive !== undefined) {
-        list = list.filter((u) => u.isActive === filters.isActive);
-      }
-      if (filters.depotId !== undefined && filters.depotId !== null) {
-        list = list.filter((u) => u.depotId === Number(filters.depotId));
-      }
-      return list.map((u) => this.formatSafeUser(u));
+      return users.map((user) => this.formatSafeUser(user));
+    } catch (error) {
+      console.error('[UserService] Failed to retrieve users:', error);
+
+      throw new UserServiceError(
+        'Unable to retrieve users from the database.',
+        500,
+        'DATABASE_READ_ERROR'
+      );
     }
   }
 
   /**
-   * Retrieves a single user by database ID or employeeId.
+   * Retrieve one user by:
+   * - database ID
+   * - employee ID
+   * - login ID
    */
-  async getUserById(idOrEmployeeId: string | number): Promise<UserResponseDTO> {
-    const numericId = typeof idOrEmployeeId === 'number' ? idOrEmployeeId : parseInt(idOrEmployeeId, 10);
+  async getUserById(
+    idOrEmployeeId: string | number
+  ): Promise<UserResponseDTO> {
+    const identifier = String(idOrEmployeeId).trim();
+
+    if (!identifier) {
+      throw new UserServiceError(
+        'User identifier is required.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const numericId = Number(identifier);
+
+    const where = Number.isInteger(numericId)
+      ? {
+          OR: [
+            {
+              id: numericId,
+            },
+            {
+              employeeId: identifier,
+            },
+            {
+              loginId: identifier.toLowerCase(),
+            },
+          ],
+        }
+      : {
+          OR: [
+            {
+              employeeId: identifier,
+            },
+            {
+              loginId: identifier.toLowerCase(),
+            },
+          ],
+        };
 
     try {
       const user = await prisma.user.findFirst({
-        where: !isNaN(numericId)
-          ? {
-              OR: [
-                { id: numericId },
-                { employeeId: String(idOrEmployeeId).trim() },
-                { loginId: String(idOrEmployeeId).trim() },
-              ],
-            }
-          : {
-              OR: [
-                { employeeId: String(idOrEmployeeId).trim() },
-                { loginId: String(idOrEmployeeId).trim() },
-              ],
-            },
+        where,
         include: {
           role: true,
           depot: true,
         },
       });
 
-      if (user) {
-        return this.formatSafeUser(user);
+      if (!user) {
+        throw new UserServiceError(
+          `User not found with identifier '${identifier}'.`,
+          404,
+          'USER_NOT_FOUND'
+        );
       }
-    } catch {
-      // Fallback below
+
+      return this.formatSafeUser(user);
+    } catch (error) {
+      if (error instanceof UserServiceError) {
+        throw error;
+      }
+
+      console.error('[UserService] Failed to retrieve user:', error);
+
+      throw new UserServiceError(
+        'Unable to retrieve the requested user from the database.',
+        500,
+        'DATABASE_READ_ERROR'
+      );
     }
-
-    // Check memory fallback
-    const raw = String(idOrEmployeeId).trim().toLowerCase();
-    const memUser = Array.from(this.memoryUsers.values()).find(
-      (u) =>
-        (!isNaN(numericId) && u.id === numericId) ||
-        u.employeeId.toLowerCase() === raw ||
-        u.loginId.toLowerCase() === raw
-    );
-
-    if (!memUser) {
-      throw new UserServiceError(`User not found with identifier '${idOrEmployeeId}'.`, 404, 'USER_NOT_FOUND');
-    }
-
-    return this.formatSafeUser(memUser);
   }
 
   /**
-   * Creates a new user in the MySQL database.
-   * Validates required business fields, enforces uniqueness, hashes password with bcrypt,
-   * and records an audit log.
+   * Create a new user.
    */
   async createUser(
     dto: CreateUserDTO,
@@ -310,76 +285,168 @@ export class UserService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<UserResponseDTO> {
-    // 1. Validate employeeId
     const cleanEmployeeId = dto.employeeId?.trim();
+
     if (!cleanEmployeeId || cleanEmployeeId.length < 2) {
-      throw new UserServiceError('Employee ID is required (minimum 2 characters).', 400, 'VALIDATION_ERROR');
+      throw new UserServiceError(
+        'Employee ID is required (minimum 2 characters).',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
+
     if (cleanEmployeeId.length > 50) {
-      throw new UserServiceError('Employee ID cannot exceed 50 characters.', 400, 'VALIDATION_ERROR');
+      throw new UserServiceError(
+        'Employee ID cannot exceed 50 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    // 2. Validate employeeName
     const cleanEmployeeName = dto.employeeName?.trim();
+
     if (!cleanEmployeeName || cleanEmployeeName.length < 2) {
-      throw new UserServiceError('Full Legal Employee Name is required (minimum 2 characters).', 400, 'VALIDATION_ERROR');
-    }
-    if (cleanEmployeeName.length > 100) {
-      throw new UserServiceError('Employee Name cannot exceed 100 characters.', 400, 'VALIDATION_ERROR');
+      throw new UserServiceError(
+        'Full Legal Employee Name is required (minimum 2 characters).',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    // 3. Validate loginId (or legacy username field)
+    if (cleanEmployeeName.length > 100) {
+      throw new UserServiceError(
+        'Employee Name cannot exceed 100 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
     const rawLoginId = dto.loginId || dto.username;
     const cleanLoginId = rawLoginId?.trim().toLowerCase();
+
     if (!cleanLoginId || cleanLoginId.length < 2) {
-      throw new UserServiceError('Login ID / Username is required (minimum 2 characters).', 400, 'VALIDATION_ERROR');
+      throw new UserServiceError(
+        'Login ID / Username is required (minimum 2 characters).',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
+
     if (cleanLoginId.length > 50) {
-      throw new UserServiceError('Login ID cannot exceed 50 characters.', 400, 'VALIDATION_ERROR');
+      throw new UserServiceError(
+        'Login ID cannot exceed 50 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    // 4. Validate password
-    if (!dto.password || typeof dto.password !== 'string' || dto.password.length < 6) {
-      throw new UserServiceError('Password is required and must be at least 6 characters.', 400, 'VALIDATION_ERROR');
+    if (
+      !dto.password ||
+      typeof dto.password !== 'string' ||
+      dto.password.length < 6
+    ) {
+      throw new UserServiceError(
+        'Password is required and must be at least 6 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
+
     if (dto.password.length > 128) {
-      throw new UserServiceError('Password cannot exceed 128 characters.', 400, 'VALIDATION_ERROR');
+      throw new UserServiceError(
+        'Password cannot exceed 128 characters.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    // 5. Validate and resolve Role
     if (!dto.role) {
-      throw new UserServiceError('Security Access Role is required.', 400, 'VALIDATION_ERROR');
-    }
-    const roleRecord = await this.resolveRole(dto.role);
-    if (!roleRecord) {
-      throw new UserServiceError(`Role '${dto.role}' does not exist in the database.`, 400, 'INVALID_ROLE');
+      throw new UserServiceError(
+        'Security Access Role is required.',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    // 6. Validate Depot if specified or required
+    const roleRecord = await this.resolveRole(dto.role);
+
+    if (!roleRecord) {
+      throw new UserServiceError(
+        `Role '${dto.role}' does not exist in the database.`,
+        400,
+        'INVALID_ROLE'
+      );
+    }
+
     let resolvedDepotId: number | null = null;
-    if (dto.depotId !== undefined && dto.depotId !== null && Number(dto.depotId) > 0) {
-      const depotExists = await prisma.depot.findUnique({
-        where: { id: Number(dto.depotId) },
-      });
-      if (!depotExists) {
-        throw new UserServiceError(`Depot with ID ${dto.depotId} does not exist.`, 400, 'INVALID_DEPOT');
+
+    if (
+      dto.depotId !== undefined &&
+      dto.depotId !== null
+    ) {
+      const depotId = Number(dto.depotId);
+
+      if (!Number.isInteger(depotId) || depotId <= 0) {
+        throw new UserServiceError(
+          'Depot ID must be a valid positive integer.',
+          400,
+          'INVALID_DEPOT_ID'
+        );
       }
+
+      const depotExists = await prisma.depot.findUnique({
+        where: {
+          id: depotId,
+        },
+      });
+
+      if (!depotExists) {
+        throw new UserServiceError(
+          `Depot with ID ${depotId} does not exist.`,
+          400,
+          'INVALID_DEPOT'
+        );
+      }
+
       resolvedDepotId = depotExists.id;
     }
 
-    // Depot Person rule: If depots exist in the database, verify assignment
-    if (roleRecord.code === 'DEPOT_PERSON' && !resolvedDepotId) {
-      const anyDepot = await prisma.depot.findFirst();
-      if (anyDepot) {
-        // If depots exist in the system, depot assignment is expected for Depot Person
-        // If not supplied, we can log a warning or require it if mandatory
-      }
+    /**
+     * Operational roles require a depot assignment.
+     *
+     * Super Admin is the only role that may operate without a depot.
+     */
+    if (
+      roleRecord.code !== 'SUPER_ADMIN' &&
+      resolvedDepotId === null
+    ) {
+      throw new UserServiceError(
+        `${roleRecord.name} must be assigned to a depot.`,
+        400,
+        'DEPOT_REQUIRED'
+      );
     }
 
-    // 7. Check uniqueness of loginId
+    /**
+     * Super Admin should not be assigned to an operational depot.
+     */
+    if (
+      roleRecord.code === 'SUPER_ADMIN' &&
+      resolvedDepotId !== null
+    ) {
+      throw new UserServiceError(
+        'Super Admin accounts cannot be assigned to a depot.',
+        400,
+        'INVALID_DEPOT_ASSIGNMENT'
+      );
+    }
+
     const existingLoginUser = await prisma.user.findUnique({
-      where: { loginId: cleanLoginId },
+      where: {
+        loginId: cleanLoginId,
+      },
     });
+
     if (existingLoginUser) {
       throw new UserServiceError(
         `Login ID / Username '@${cleanLoginId}' is already taken.`,
@@ -388,10 +455,12 @@ export class UserService {
       );
     }
 
-    // 8. Check uniqueness of employeeId
     const existingEmpUser = await prisma.user.findUnique({
-      where: { employeeId: cleanEmployeeId },
+      where: {
+        employeeId: cleanEmployeeId,
+      },
     });
+
     if (existingEmpUser) {
       throw new UserServiceError(
         `Employee ID '${cleanEmployeeId}' is already registered.`,
@@ -400,59 +469,78 @@ export class UserService {
       );
     }
 
-    // 9. Hash password using standard bcrypt utility (12 rounds)
     const passwordHash = await hashPassword(dto.password);
 
-    // 10. Persist User in MySQL via Prisma
-    const createdUser = await prisma.user.create({
-      data: {
-        employeeId: cleanEmployeeId,
-        employeeName: cleanEmployeeName,
-        loginId: cleanLoginId,
-        passwordHash,
-        roleId: roleRecord.id,
-        depotId: resolvedDepotId,
-        phone: dto.phone?.trim() || null,
-        isActive: dto.isActive !== undefined ? Boolean(dto.isActive) : true,
-      },
-      include: {
-        role: true,
-        depot: true,
-      },
-    });
-
-    // 11. Record safe audit log (NEVER store password or passwordHash)
     try {
-      await prisma.auditLog.create({
+      const createdUser = await prisma.user.create({
         data: {
-          userId: creatorUserId || null,
-          action: 'USER_CREATED',
-          entityType: 'User',
-          entityId: String(createdUser.id),
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          newValues: JSON.stringify({
-            userId: createdUser.id,
-            employeeId: createdUser.employeeId,
-            employeeName: createdUser.employeeName,
-            loginId: createdUser.loginId,
-            role: createdUser.role.code,
-            depotId: createdUser.depotId,
-            isActive: createdUser.isActive,
-          }),
+          employeeId: cleanEmployeeId,
+          employeeName: cleanEmployeeName,
+          loginId: cleanLoginId,
+          passwordHash,
+          roleId: roleRecord.id,
+          depotId: resolvedDepotId,
+          phone: dto.phone?.trim() || null,
+          isActive:
+            dto.isActive !== undefined
+              ? Boolean(dto.isActive)
+              : true,
+        },
+        include: {
+          role: true,
+          depot: true,
         },
       });
-    } catch {
-      // Audit log error does not fail the primary transaction
-    }
 
-    return this.formatSafeUser(createdUser);
+      try {
+        await prisma.auditLog.create({
+          data: {
+            userId: creatorUserId || null,
+            action: 'USER_CREATED',
+            entityType: 'User',
+            entityId: String(createdUser.id),
+            ipAddress: ipAddress || null,
+            userAgent: userAgent || null,
+            newValues: JSON.stringify({
+              userId: createdUser.id,
+              employeeId: createdUser.employeeId,
+              employeeName: createdUser.employeeName,
+              loginId: createdUser.loginId,
+              role: createdUser.role.code,
+              depotId: createdUser.depotId,
+              isActive: createdUser.isActive,
+            }),
+          },
+        });
+      } catch (auditError) {
+        console.error(
+          '[UserService] Audit log failed for USER_CREATED:',
+          auditError
+        );
+      }
+
+      return this.formatSafeUser(createdUser);
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new UserServiceError(
+          'A user with the supplied unique information already exists.',
+          409,
+          'DUPLICATE_USER'
+        );
+      }
+
+      console.error('[UserService] Failed to create user:', error);
+
+      throw new UserServiceError(
+        'Unable to create the user in the database.',
+        500,
+        'DATABASE_WRITE_ERROR'
+      );
+    }
   }
 
   /**
-   * Updates an existing user's details in MySQL.
-   * If a new password is provided, it is hashed with bcrypt.
-   * If omitted or placeholder, existing passwordHash is preserved.
+   * Update an existing user.
    */
   async updateUser(
     userId: number,
@@ -461,17 +549,32 @@ export class UserService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<UserResponseDTO> {
-    // 1. Fetch existing user record
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UserServiceError(
+        'User ID must be a valid positive integer.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true, depot: true },
+      where: {
+        id: userId,
+      },
+      include: {
+        role: true,
+        depot: true,
+      },
     });
 
     if (!existingUser) {
-      throw new UserServiceError(`User with ID ${userId} not found.`, 404, 'USER_NOT_FOUND');
+      throw new UserServiceError(
+        `User with ID ${userId} not found.`,
+        404,
+        'USER_NOT_FOUND'
+      );
     }
 
-    // 2. Self-protection checks for current administrator
     if (updaterUserId === existingUser.id) {
       if (dto.isActive === false) {
         throw new UserServiceError(
@@ -481,9 +584,14 @@ export class UserService {
         );
       }
 
-      if (dto.role) {
+      if (dto.role !== undefined) {
         const newRole = await this.resolveRole(dto.role);
-        if (newRole && newRole.code !== 'SUPER_ADMIN' && existingUser.role.code === 'SUPER_ADMIN') {
+
+        if (
+          newRole &&
+          existingUser.role.code === 'SUPER_ADMIN' &&
+          newRole.code !== 'SUPER_ADMIN'
+        ) {
           throw new UserServiceError(
             'Cannot revoke your own Super Admin administrative role.',
             400,
@@ -495,26 +603,56 @@ export class UserService {
 
     const updateData: any = {};
 
-    // 3. Update employeeName if supplied
     if (dto.employeeName !== undefined) {
       const cleanName = dto.employeeName.trim();
+
       if (cleanName.length < 2) {
-        throw new UserServiceError('Employee Name must be at least 2 characters.', 400, 'VALIDATION_ERROR');
+        throw new UserServiceError(
+          'Employee Name must be at least 2 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
+
+      if (cleanName.length > 100) {
+        throw new UserServiceError(
+          'Employee Name cannot exceed 100 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
+      }
+
       updateData.employeeName = cleanName;
     }
 
-    // 4. Update loginId if changed
     const rawLoginId = dto.loginId || dto.username;
+
     if (rawLoginId !== undefined) {
       const cleanLoginId = rawLoginId.trim().toLowerCase();
+
       if (cleanLoginId.length < 2) {
-        throw new UserServiceError('Login ID must be at least 2 characters.', 400, 'VALIDATION_ERROR');
+        throw new UserServiceError(
+          'Login ID must be at least 2 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
+
+      if (cleanLoginId.length > 50) {
+        throw new UserServiceError(
+          'Login ID cannot exceed 50 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
+      }
+
       if (cleanLoginId !== existingUser.loginId) {
         const duplicateLogin = await prisma.user.findUnique({
-          where: { loginId: cleanLoginId },
+          where: {
+            loginId: cleanLoginId,
+          },
         });
+
         if (duplicateLogin) {
           throw new UserServiceError(
             `Login ID / Username '@${cleanLoginId}' is already taken by another account.`,
@@ -522,123 +660,232 @@ export class UserService {
             'DUPLICATE_LOGIN_ID'
           );
         }
+
         updateData.loginId = cleanLoginId;
       }
     }
 
-    // 5. Update employeeId if changed
     if (dto.employeeId !== undefined) {
-      const cleanEmpId = dto.employeeId.trim();
-      if (cleanEmpId.length < 2) {
-        throw new UserServiceError('Employee ID must be at least 2 characters.', 400, 'VALIDATION_ERROR');
+      const cleanEmployeeId = dto.employeeId.trim();
+
+      if (cleanEmployeeId.length < 2) {
+        throw new UserServiceError(
+          'Employee ID must be at least 2 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
-      if (cleanEmpId !== existingUser.employeeId) {
-        const duplicateEmp = await prisma.user.findUnique({
-          where: { employeeId: cleanEmpId },
+
+      if (cleanEmployeeId.length > 50) {
+        throw new UserServiceError(
+          'Employee ID cannot exceed 50 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
+      }
+
+      if (cleanEmployeeId !== existingUser.employeeId) {
+        const duplicateEmployee = await prisma.user.findUnique({
+          where: {
+            employeeId: cleanEmployeeId,
+          },
         });
-        if (duplicateEmp) {
+
+        if (duplicateEmployee) {
           throw new UserServiceError(
-            `Employee ID '${cleanEmpId}' is already registered to another account.`,
+            `Employee ID '${cleanEmployeeId}' is already registered to another account.`,
             409,
             'DUPLICATE_EMPLOYEE_ID'
           );
         }
-        updateData.employeeId = cleanEmpId;
+
+        updateData.employeeId = cleanEmployeeId;
       }
     }
 
-    // 6. Update Role if supplied
+    let resolvedRole = existingUser.role;
+
     if (dto.role !== undefined) {
-      const resolvedRole = await this.resolveRole(dto.role);
-      if (!resolvedRole) {
-        throw new UserServiceError(`Role '${dto.role}' does not exist.`, 400, 'INVALID_ROLE');
+      const roleRecord = await this.resolveRole(dto.role);
+
+      if (!roleRecord) {
+        throw new UserServiceError(
+          `Role '${dto.role}' does not exist.`,
+          400,
+          'INVALID_ROLE'
+        );
       }
-      updateData.roleId = resolvedRole.id;
+
+      resolvedRole = roleRecord;
+      updateData.roleId = roleRecord.id;
     }
 
-    // 7. Update Depot if supplied
+    let resolvedDepotId = existingUser.depotId;
+
     if (dto.depotId !== undefined) {
-      if (dto.depotId === null || Number(dto.depotId) === 0) {
-        updateData.depotId = null;
+      if (
+        dto.depotId === null ||
+        Number(dto.depotId) === 0
+      ) {
+        resolvedDepotId = null;
       } else {
-        const depot = await prisma.depot.findUnique({
-          where: { id: Number(dto.depotId) },
-        });
-        if (!depot) {
-          throw new UserServiceError(`Depot with ID ${dto.depotId} not found.`, 400, 'INVALID_DEPOT');
+        const depotId = Number(dto.depotId);
+
+        if (!Number.isInteger(depotId) || depotId <= 0) {
+          throw new UserServiceError(
+            'Depot ID must be a valid positive integer.',
+            400,
+            'INVALID_DEPOT_ID'
+          );
         }
-        updateData.depotId = depot.id;
+
+        const depot = await prisma.depot.findUnique({
+          where: {
+            id: depotId,
+          },
+        });
+
+        if (!depot) {
+          throw new UserServiceError(
+            `Depot with ID ${depotId} not found.`,
+            400,
+            'INVALID_DEPOT'
+          );
+        }
+
+        resolvedDepotId = depot.id;
       }
+
+      updateData.depotId = resolvedDepotId;
     }
 
-    // 8. Update Phone if supplied
+    /**
+     * Validate final role/depot combination.
+     */
+    if (
+      resolvedRole.code !== 'SUPER_ADMIN' &&
+      resolvedDepotId === null
+    ) {
+      throw new UserServiceError(
+        `${resolvedRole.name} must be assigned to a depot.`,
+        400,
+        'DEPOT_REQUIRED'
+      );
+    }
+
+    if (
+      resolvedRole.code === 'SUPER_ADMIN' &&
+      resolvedDepotId !== null
+    ) {
+      throw new UserServiceError(
+        'Super Admin accounts cannot be assigned to a depot.',
+        400,
+        'INVALID_DEPOT_ASSIGNMENT'
+      );
+    }
+
     if (dto.phone !== undefined) {
       updateData.phone = dto.phone?.trim() || null;
     }
 
-    // 9. Update isActive if supplied
     if (dto.isActive !== undefined) {
       updateData.isActive = Boolean(dto.isActive);
     }
 
-    // 10. Update Password if a non-placeholder value was entered
-    const isPlaceholder = !dto.password || dto.password === '••••••••' || dto.password.trim() === '';
+    const isPlaceholder =
+      !dto.password ||
+      dto.password === '••••••••' ||
+      dto.password.trim() === '';
+
     if (!isPlaceholder) {
       if (dto.password!.length < 6) {
-        throw new UserServiceError('New password must be at least 6 characters long.', 400, 'VALIDATION_ERROR');
+        throw new UserServiceError(
+          'New password must be at least 6 characters long.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
+
       if (dto.password!.length > 128) {
-        throw new UserServiceError('New password cannot exceed 128 characters.', 400, 'VALIDATION_ERROR');
+        throw new UserServiceError(
+          'New password cannot exceed 128 characters.',
+          400,
+          'VALIDATION_ERROR'
+        );
       }
+
       updateData.passwordHash = await hashPassword(dto.password!);
     }
 
-    // 11. Execute update in Prisma
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      include: {
-        role: true,
-        depot: true,
-      },
-    });
-
-    // 12. Record safe audit log
     try {
-      await prisma.auditLog.create({
-        data: {
-          userId: updaterUserId || null,
-          action: 'USER_UPDATED',
-          entityType: 'User',
-          entityId: String(updatedUser.id),
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          oldValues: JSON.stringify({
-            employeeName: existingUser.employeeName,
-            loginId: existingUser.loginId,
-            role: existingUser.role.code,
-            depotId: existingUser.depotId,
-            isActive: existingUser.isActive,
-          }),
-          newValues: JSON.stringify({
-            employeeName: updatedUser.employeeName,
-            loginId: updatedUser.loginId,
-            role: updatedUser.role.code,
-            depotId: updatedUser.depotId,
-            isActive: updatedUser.isActive,
-            passwordChanged: !isPlaceholder,
-          }),
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: updateData,
+        include: {
+          role: true,
+          depot: true,
         },
       });
-    } catch {
-      // Non-blocking audit log
-    }
 
-    return this.formatSafeUser(updatedUser);
+      try {
+        await prisma.auditLog.create({
+          data: {
+            userId: updaterUserId || null,
+            action: 'USER_UPDATED',
+            entityType: 'User',
+            entityId: String(updatedUser.id),
+            ipAddress: ipAddress || null,
+            userAgent: userAgent || null,
+            oldValues: JSON.stringify({
+              employeeName: existingUser.employeeName,
+              employeeId: existingUser.employeeId,
+              loginId: existingUser.loginId,
+              role: existingUser.role.code,
+              depotId: existingUser.depotId,
+              isActive: existingUser.isActive,
+            }),
+            newValues: JSON.stringify({
+              employeeName: updatedUser.employeeName,
+              employeeId: updatedUser.employeeId,
+              loginId: updatedUser.loginId,
+              role: updatedUser.role.code,
+              depotId: updatedUser.depotId,
+              isActive: updatedUser.isActive,
+              passwordChanged: !isPlaceholder,
+            }),
+          },
+        });
+      } catch (auditError) {
+        console.error(
+          '[UserService] Audit log failed for USER_UPDATED:',
+          auditError
+        );
+      }
+
+      return this.formatSafeUser(updatedUser);
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new UserServiceError(
+          'A user with the supplied unique information already exists.',
+          409,
+          'DUPLICATE_USER'
+        );
+      }
+
+      console.error('[UserService] Failed to update user:', error);
+
+      throw new UserServiceError(
+        'Unable to update the user in the database.',
+        500,
+        'DATABASE_WRITE_ERROR'
+      );
+    }
   }
 
   /**
-   * Activates or deactivates a user account.
+   * Activate/deactivate a user.
    */
   async updateUserStatus(
     userId: number,
@@ -647,8 +894,18 @@ export class UserService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<UserResponseDTO> {
-    // Self-protection check upfront
-    if (updaterUserId === userId && !isActive) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UserServiceError(
+        'User ID must be a valid positive integer.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (
+      updaterUserId === userId &&
+      !isActive
+    ) {
       throw new UserServiceError(
         'Cannot deactivate your own currently authenticated administrative account.',
         400,
@@ -657,41 +914,76 @@ export class UserService {
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true, depot: true },
-    });
-
-    if (!existingUser) {
-      throw new UserServiceError(`User with ID ${userId} not found.`, 404, 'USER_NOT_FOUND');
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { isActive },
+      where: {
+        id: userId,
+      },
       include: {
         role: true,
         depot: true,
       },
     });
 
-    // Record safe audit log
-    try {
-      await prisma.auditLog.create({
-        data: {
-          userId: updaterUserId || null,
-          action: isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
-          entityType: 'User',
-          entityId: String(updatedUser.id),
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          newValues: JSON.stringify({ isActive }),
-        },
-      });
-    } catch {
-      // Non-blocking audit log
+    if (!existingUser) {
+      throw new UserServiceError(
+        `User with ID ${userId} not found.`,
+        404,
+        'USER_NOT_FOUND'
+      );
     }
 
-    return this.formatSafeUser(updatedUser);
+    try {
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          isActive,
+        },
+        include: {
+          role: true,
+          depot: true,
+        },
+      });
+
+      try {
+        await prisma.auditLog.create({
+          data: {
+            userId: updaterUserId || null,
+            action: isActive
+              ? 'USER_ACTIVATED'
+              : 'USER_DEACTIVATED',
+            entityType: 'User',
+            entityId: String(updatedUser.id),
+            ipAddress: ipAddress || null,
+            userAgent: userAgent || null,
+            oldValues: JSON.stringify({
+              isActive: existingUser.isActive,
+            }),
+            newValues: JSON.stringify({
+              isActive: updatedUser.isActive,
+            }),
+          },
+        });
+      } catch (auditError) {
+        console.error(
+          '[UserService] Audit log failed for USER_STATUS_UPDATE:',
+          auditError
+        );
+      }
+
+      return this.formatSafeUser(updatedUser);
+    } catch (error) {
+      console.error(
+        '[UserService] Failed to update user status:',
+        error
+      );
+
+      throw new UserServiceError(
+        'Unable to update the user account status in the database.',
+        500,
+        'DATABASE_WRITE_ERROR'
+      );
+    }
   }
 }
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { User, Role } from '../types';
+import { User, Role, Depot } from '../types';
 import { userService } from '../services/userService';
+import { depotService } from '../services/depotService';
 import { Modal } from '../components/common/Modal';
 import {
   Search,
@@ -9,95 +10,183 @@ import {
   Edit2,
   Trash2,
   ShieldCheck,
-  UserCheck,
   Eye,
   EyeOff,
   RefreshCw,
   Loader2,
+  Building2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const UserMaster: React.FC = () => {
   const { currentUser } = useApp();
 
-  // Master Users State from MySQL Backend
+  // ---------------------------------------------------------------------------
+  // DATABASE STATE
+  // ---------------------------------------------------------------------------
+
   const [usersList, setUsersList] = useState<User[]>([]);
+  const [depotsList, setDepotsList] = useState<Depot[]>([]);
+
   const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(true);
+  const [isLoadingDepots, setIsLoadingDepots] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // State managers
+  // ---------------------------------------------------------------------------
+  // FILTER STATE
+  // ---------------------------------------------------------------------------
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'All' | Role>('All');
 
-  // Modal forms
+  // ---------------------------------------------------------------------------
+  // MODAL STATE
+  // ---------------------------------------------------------------------------
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'Add' | 'Edit'>('Add');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Form inputs
+  // ---------------------------------------------------------------------------
+  // FORM STATE
+  // ---------------------------------------------------------------------------
+
   const [employeeId, setEmployeeId] = useState('');
   const [employeeName, setEmployeeName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('Sales Officer');
+  const [depotId, setDepotId] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [showFormPassword, setShowFormPassword] = useState(false);
 
-  // Fetch users from database
+  // ---------------------------------------------------------------------------
+  // LOAD USERS
+  // ---------------------------------------------------------------------------
+
   const loadUsersFromDatabase = useCallback(async () => {
     setIsLoadingUsers(true);
+
     try {
       const data = await userService.getUsers();
       setUsersList(data);
     } catch (error: any) {
-      console.error('[UserMaster] Failed to load users from backend:', error);
-      const errMsg = error.response?.data?.error?.message || 'Failed to load users from server.';
+      console.error('[UserMaster] Failed to load users:', error);
+
+      const errMsg =
+        error.response?.data?.error?.message ||
+        error.message ||
+        'Failed to load users from server.';
+
       toast.error(errMsg);
     } finally {
       setIsLoadingUsers(false);
     }
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // LOAD DEPOTS
+  // ---------------------------------------------------------------------------
+
+  const loadDepotsFromDatabase = useCallback(async () => {
+    setIsLoadingDepots(true);
+
+    try {
+      const data = await depotService.getDepots({
+        isActive: true,
+      });
+
+      setDepotsList(data);
+    } catch (error: any) {
+      console.error('[UserMaster] Failed to load depots:', error);
+
+      const errMsg =
+        error.response?.data?.error?.message ||
+        error.message ||
+        'Failed to load depots from server.';
+
+      toast.error(errMsg);
+      setDepotsList([]);
+    } finally {
+      setIsLoadingDepots(false);
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // INITIAL DATABASE LOAD
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     loadUsersFromDatabase();
-  }, [loadUsersFromDatabase]);
+    loadDepotsFromDatabase();
+  }, [loadUsersFromDatabase, loadDepotsFromDatabase]);
 
-  // Open forms
+  // ---------------------------------------------------------------------------
+  // ADD USER MODAL
+  // ---------------------------------------------------------------------------
+
   const handleOpenAddModal = () => {
     setModalMode('Add');
     setSelectedUser(null);
+
+    /*
+     * Employee ID is currently generated for the existing UI workflow.
+     * Backend uniqueness validation remains authoritative.
+     */
     setEmployeeId(`EMP-${Math.floor(100 + Math.random() * 900)}`);
+
     setEmployeeName('');
     setUsername('');
     setPassword('salespassword');
     setRole('Sales Officer');
+    setDepotId(null);
     setIsActive(true);
     setShowFormPassword(false);
+
     setIsModalOpen(true);
   };
+
+  // ---------------------------------------------------------------------------
+  // EDIT USER MODAL
+  // ---------------------------------------------------------------------------
 
   const handleOpenEditModal = (user: User) => {
     setModalMode('Edit');
     setSelectedUser(user);
+
     setEmployeeId(user.employeeId);
     setEmployeeName(user.employeeName);
     setUsername(user.username || user.loginId);
     setPassword('••••••••');
     setRole(user.role);
+    setDepotId(user.depotId ?? null);
     setIsActive(user.isActive);
     setShowFormPassword(false);
+
     setIsModalOpen(true);
   };
 
-  // Submit form to backend
+  // ---------------------------------------------------------------------------
+  // FORM SUBMIT
+  // ---------------------------------------------------------------------------
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeName.trim() || !username.trim() || !password.trim()) {
-      toast.error('All fields marked * are required.');
+
+    // Common required fields
+    if (!employeeId.trim() || !employeeName.trim() || !username.trim()) {
+      toast.error('Employee ID, name and username are required.');
+      return;
+    }
+
+    // Password is mandatory only while creating a user.
+    if (modalMode === 'Add' && !password.trim()) {
+      toast.error('Password is required when creating a new user.');
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       if (modalMode === 'Add') {
         await userService.createUser({
@@ -106,51 +195,79 @@ export const UserMaster: React.FC = () => {
           loginId: username.toLowerCase().trim(),
           password: password.trim(),
           role,
+          depotId,
           isActive,
         });
-        toast.success('New employee credentials registered in MySQL!');
+
+        toast.success('New employee credentials registered in MySQL.');
       } else {
         const targetId = selectedUser?.userId || selectedUser?.employeeId;
+
         if (!targetId) {
           toast.error('User identifier not found.');
           return;
         }
 
-        const updatePayload: any = {
+        const updatePayload: {
+          employeeName: string;
+          loginId: string;
+          role: Role;
+          depotId: number | null;
+          isActive: boolean;
+          password?: string;
+        } = {
           employeeName: employeeName.trim(),
           loginId: username.toLowerCase().trim(),
           role,
+          depotId,
           isActive,
         };
 
-        // Only send password if user changed it from placeholder
-        if (password && password !== '••••••••' && password.trim().length > 0) {
+        /*
+         * Only send a password when the administrator actually entered
+         * a replacement password.
+         */
+        if (
+          password &&
+          password !== '••••••••' &&
+          password.trim().length > 0
+        ) {
           updatePayload.password = password.trim();
         }
 
         await userService.updateUser(targetId, updatePayload);
+
         toast.success('Employee credentials updated in MySQL.');
       }
 
       setIsModalOpen(false);
+
+      // Reload the authoritative database state.
       await loadUsersFromDatabase();
     } catch (error: any) {
       console.error('[UserMaster] Mutation failed:', error);
+
       const errMsg =
         error.response?.data?.error?.message ||
         error.message ||
         'Failed to save user credentials.';
+
       toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Deactivate user in database
+  // ---------------------------------------------------------------------------
+  // DEACTIVATE USER
+  // ---------------------------------------------------------------------------
+
   const handleDelete = async (user: User) => {
     const isSelf =
       user.employeeId === currentUser?.employeeId ||
-      (user.userId && currentUser?.userId && user.userId === currentUser.userId);
+      (user.userId &&
+        currentUser?.userId &&
+        user.userId === currentUser.userId);
 
     if (isSelf) {
       toast.error('Cannot deactivate your own active logged-in account.');
@@ -164,30 +281,71 @@ export const UserMaster: React.FC = () => {
     ) {
       try {
         const targetId = user.userId || user.employeeId;
+
         await userService.updateUserStatus(targetId, false);
+
         toast.success('User credentials deactivated.');
+
         await loadUsersFromDatabase();
       } catch (error: any) {
         console.error('[UserMaster] Deactivation failed:', error);
+
         const errMsg =
           error.response?.data?.error?.message ||
           error.message ||
           'Failed to deactivate user.';
+
         toast.error(errMsg);
       }
     }
   };
 
-  // Client-side instant filter on the database-loaded dataset
+  // ---------------------------------------------------------------------------
+  // FRONTEND FILTERING
+  // ---------------------------------------------------------------------------
+
+  const normalizedSearch = searchTerm.toLowerCase().trim();
+
   const filteredUsers = usersList.filter((u) => {
     const matchesSearch =
-      u.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.loginId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'All' || u.role === roleFilter;
+      u.employeeName.toLowerCase().includes(normalizedSearch) ||
+      u.username.toLowerCase().includes(normalizedSearch) ||
+      u.loginId.toLowerCase().includes(normalizedSearch) ||
+      u.employeeId.toLowerCase().includes(normalizedSearch);
+
+    const matchesRole =
+      roleFilter === 'All' || u.role === roleFilter;
+
     return matchesSearch && matchesRole;
   });
+
+  // ---------------------------------------------------------------------------
+  // DEPOT DISPLAY HELPER
+  // ---------------------------------------------------------------------------
+
+  const getDepotName = (user: User): string => {
+    if (user.depotName) {
+      return user.depotName;
+    }
+
+    if (user.depotId !== null && user.depotId !== undefined) {
+      const depot = depotsList.find(
+        (item) =>
+          item.id === user.depotId ||
+          item.depotId === user.depotId
+      );
+
+      if (depot) {
+        return depot.name || depot.siteName;
+      }
+    }
+
+    return 'No Depot Assigned';
+  };
+
+  // ---------------------------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="space-y-6" id="user-master-section">
@@ -198,25 +356,39 @@ export const UserMaster: React.FC = () => {
             <h1 className="font-display font-bold text-slate-900 text-2xl tracking-tight">
               User Credentials & Employee Master
             </h1>
+
             <button
-              onClick={loadUsersFromDatabase}
+              onClick={() => {
+                loadUsersFromDatabase();
+                loadDepotsFromDatabase();
+              }}
               title="Refresh from Database"
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               id="btn-refresh-users"
             >
-              <RefreshCw className={`h-4 w-4 ${isLoadingUsers ? 'animate-spin text-brand-600' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  isLoadingUsers || isLoadingDepots
+                    ? 'animate-spin text-brand-600'
+                    : ''
+                }`}
+              />
             </button>
           </div>
+
           <p className="text-slate-500 text-sm">
-            Manage corporate identities, assign roles (Super Admin, Depot Person, Sales Officer), and configure security levels in MySQL.
+            Manage corporate identities, assign roles (Super Admin, Depot Person,
+            Sales Officer), and configure security levels in MySQL.
           </p>
         </div>
+
         <button
           onClick={handleOpenAddModal}
           id="btn-add-user"
           className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all"
         >
-          <Plus className="h-4 w-4" /> Register Employee
+          <Plus className="h-4 w-4" />
+          Register Employee
         </button>
       </div>
 
@@ -226,6 +398,7 @@ export const UserMaster: React.FC = () => {
           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
             <Search className="h-4 w-4" />
           </span>
+
           <input
             type="text"
             placeholder="Search employees by ID, name, or username..."
@@ -238,7 +411,9 @@ export const UserMaster: React.FC = () => {
 
         {/* Role Toggle Tabs */}
         <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 shrink-0 w-full sm:w-auto overflow-x-auto">
-          {(['All', 'Super Admin', 'Depot Person', 'Sales Officer'] as const).map((r) => (
+          {(
+            ['All', 'Super Admin', 'Depot Person', 'Sales Officer'] as const
+          ).map((r) => (
             <button
               key={r}
               onClick={() => setRoleFilter(r)}
@@ -258,30 +433,43 @@ export const UserMaster: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-fiori overflow-hidden">
         {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse" id="user-master-table">
+          <table
+            className="w-full text-left border-collapse"
+            id="user-master-table"
+          >
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="px-6 py-4">Employee ID</th>
                 <th className="px-6 py-4">Full Name</th>
                 <th className="px-6 py-4">Secure Username</th>
                 <th className="px-6 py-4">System Role / Permissions</th>
+                <th className="px-6 py-4">Depot</th>
                 <th className="px-6 py-4">Account Status</th>
                 <th className="px-6 py-4 text-center">Actions</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-100 text-xs text-slate-600">
               {isLoadingUsers ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td
+                    colSpan={7}
+                    className="text-center py-12 text-slate-400"
+                  >
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
-                      <span>Loading authenticated employee records from MySQL...</span>
+                      <span>
+                        Loading authenticated employee records from MySQL...
+                      </span>
                     </div>
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td
+                    colSpan={7}
+                    className="text-center py-12 text-slate-400"
+                  >
                     No personnel found matching parameters.
                   </td>
                 </tr>
@@ -289,24 +477,33 @@ export const UserMaster: React.FC = () => {
                 filteredUsers.map((user) => {
                   const isCurrent =
                     user.employeeId === currentUser?.employeeId ||
-                    (user.userId && currentUser?.userId && user.userId === currentUser.userId);
+                    (user.userId &&
+                      currentUser?.userId &&
+                      user.userId === currentUser.userId);
 
                   return (
-                    <tr key={user.employeeId} className="hover:bg-slate-50/50 transition-colors">
+                    <tr
+                      key={user.employeeId}
+                      className="hover:bg-slate-50/50 transition-colors"
+                    >
                       <td className="px-6 py-4 font-mono font-bold text-slate-800">
                         {user.employeeId}
                       </td>
+
                       <td className="px-6 py-4 font-semibold text-slate-950">
                         {user.employeeName}
+
                         {isCurrent && (
                           <span className="ml-2 inline-block text-[9px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-600 border border-brand-100 font-bold uppercase">
                             YOU
                           </span>
                         )}
                       </td>
+
                       <td className="px-6 py-4 font-medium text-brand-600 font-mono">
                         @{user.username || user.loginId}
                       </td>
+
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
@@ -321,14 +518,37 @@ export const UserMaster: React.FC = () => {
                           {user.role}
                         </span>
                       </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5 text-slate-400" />
+
+                          <span
+                            className={`font-semibold ${
+                              user.depotId
+                                ? 'text-slate-700'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {getDepotName(user)}
+                          </span>
+                        </div>
+                      </td>
+
                       <td className="px-6 py-4">
                         <span
                           className={`inline-block h-2 w-2 rounded-full mr-2 ${
-                            user.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                            user.isActive
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-slate-300'
                           }`}
                         />
-                        <span className="font-semibold">{user.isActive ? 'Active' : 'Suspended'}</span>
+
+                        <span className="font-semibold">
+                          {user.isActive ? 'Active' : 'Suspended'}
+                        </span>
                       </td>
+
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -339,11 +559,16 @@ export const UserMaster: React.FC = () => {
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
+
                           <button
                             onClick={() => handleDelete(user)}
                             disabled={isCurrent}
                             className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-30"
-                            title={isCurrent ? 'Cannot deactivate self' : 'Deactivate Account'}
+                            title={
+                              isCurrent
+                                ? 'Cannot deactivate self'
+                                : 'Deactivate Account'
+                            }
                             id={`btn-delete-user-${user.employeeId}`}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -359,7 +584,10 @@ export const UserMaster: React.FC = () => {
         </div>
 
         {/* Mobile View Card Grid */}
-        <div className="block md:hidden divide-y divide-slate-100 p-4 space-y-4" id="user-mobile-cards">
+        <div
+          className="block md:hidden divide-y divide-slate-100 p-4 space-y-4"
+          id="user-mobile-cards"
+        >
           {isLoadingUsers ? (
             <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
@@ -373,23 +601,38 @@ export const UserMaster: React.FC = () => {
             filteredUsers.map((user) => {
               const isCurrent =
                 user.employeeId === currentUser?.employeeId ||
-                (user.userId && currentUser?.userId && user.userId === currentUser.userId);
+                (user.userId &&
+                  currentUser?.userId &&
+                  user.userId === currentUser.userId);
 
               return (
-                <div key={user.employeeId} className="pt-4 first:pt-0 space-y-3">
+                <div
+                  key={user.employeeId}
+                  className="pt-4 first:pt-0 space-y-3"
+                >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-slate-900">{user.employeeId}</span>
+                        <span className="font-mono text-xs font-bold text-slate-900">
+                          {user.employeeId}
+                        </span>
+
                         {isCurrent && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-600 border border-brand-100 font-bold uppercase">
                             YOU
                           </span>
                         )}
                       </div>
-                      <h4 className="font-semibold text-slate-950 text-sm mt-0.5">{user.employeeName}</h4>
-                      <p className="text-xs font-mono text-brand-600 font-medium">@{user.username || user.loginId}</p>
+
+                      <h4 className="font-semibold text-slate-950 text-sm mt-0.5">
+                        {user.employeeName}
+                      </h4>
+
+                      <p className="text-xs font-mono text-brand-600 font-medium">
+                        @{user.username || user.loginId}
+                      </p>
                     </div>
+
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold border ${
                         user.role === 'Super Admin'
@@ -404,10 +647,26 @@ export const UserMaster: React.FC = () => {
                     </span>
                   </div>
 
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="font-medium">
+                      {getDepotName(user)}
+                    </span>
+                  </div>
+
                   <div className="flex items-center justify-between text-xs pt-1">
                     <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-                      <span className={`h-2 w-2 rounded-full ${user.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                      {user.isActive ? 'Active Credentials' : 'Suspended'}
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          user.isActive
+                            ? 'bg-emerald-500'
+                            : 'bg-slate-300'
+                        }`}
+                      />
+
+                      {user.isActive
+                        ? 'Active Credentials'
+                        : 'Suspended'}
                     </span>
 
                     <div className="flex items-center gap-2">
@@ -418,6 +677,7 @@ export const UserMaster: React.FC = () => {
                       >
                         Edit
                       </button>
+
                       <button
                         onClick={() => handleDelete(user)}
                         disabled={isCurrent}
@@ -439,16 +699,25 @@ export const UserMaster: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => !isSubmitting && setIsModalOpen(false)}
-        title={modalMode === 'Add' ? 'Add New Employee Credentials' : `Edit User Details: ${employeeId}`}
+        title={
+          modalMode === 'Add'
+            ? 'Add New Employee Credentials'
+            : `Edit User Details: ${employeeId}`
+        }
         size="md"
       >
-        <form onSubmit={handleFormSubmit} className="space-y-4" id="user-modal-form">
+        <form
+          onSubmit={handleFormSubmit}
+          className="space-y-4"
+          id="user-modal-form"
+        >
           <div className="space-y-4">
             {/* Employee ID */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Employee Registry ID *
               </label>
+
               <input
                 type="text"
                 required
@@ -464,6 +733,7 @@ export const UserMaster: React.FC = () => {
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Full Legal Name *
               </label>
+
               <input
                 type="text"
                 required
@@ -480,8 +750,12 @@ export const UserMaster: React.FC = () => {
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Authorized Username *
               </label>
+
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs">@</span>
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs">
+                  @
+                </span>
+
                 <input
                   type="text"
                   required
@@ -497,8 +771,11 @@ export const UserMaster: React.FC = () => {
             {/* Password */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                {modalMode === 'Add' ? 'Secure Password *' : 'Change Password (leave blank or placeholder to keep existing)'}
+                {modalMode === 'Add'
+                  ? 'Secure Password *'
+                  : 'Change Password (leave placeholder to keep existing)'}
               </label>
+
               <div className="relative">
                 <input
                   type={showFormPassword ? 'text' : 'password'}
@@ -506,15 +783,26 @@ export const UserMaster: React.FC = () => {
                   disabled={isSubmitting}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={modalMode === 'Add' ? 'Enter credential password' : '••••••••'}
+                  placeholder={
+                    modalMode === 'Add'
+                      ? 'Enter credential password'
+                      : '••••••••'
+                  }
                   className="w-full px-3.5 py-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-mono"
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowFormPassword(!showFormPassword)}
+                  onClick={() =>
+                    setShowFormPassword(!showFormPassword)
+                  }
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
                 >
-                  {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4.5 w-4.5" />}
+                  {showFormPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4.5 w-4.5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -524,16 +812,79 @@ export const UserMaster: React.FC = () => {
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                 Security Access Role *
               </label>
+
               <select
                 value={role}
                 disabled={isSubmitting}
                 onChange={(e) => setRole(e.target.value as Role)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-semibold text-slate-800 disabled:bg-slate-100"
               >
-                <option value="Super Admin">Super Admin (Management Level)</option>
-                <option value="Depot Person">Depot Person (Logistics Operator)</option>
-                <option value="Sales Officer">Sales Officer (Field Representative)</option>
+                <option value="Super Admin">
+                  Super Admin (Management Level)
+                </option>
+
+                <option value="Depot Person">
+                  Depot Person (Logistics Operator)
+                </option>
+
+                <option value="Sales Officer">
+                  Sales Officer (Field Representative)
+                </option>
               </select>
+            </div>
+
+            {/* Depot */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Assigned Depot
+              </label>
+
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+
+                <select
+                  value={depotId ?? ''}
+                  disabled={isSubmitting || isLoadingDepots}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setDepotId(value === '' ? null : Number(value));
+                  }}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-semibold disabled:bg-slate-100"
+                >
+                  <option value="">
+                    {isLoadingDepots
+                      ? 'Loading depots...'
+                      : 'No Depot Assigned'}
+                  </option>
+
+                  {depotsList.map((depot) => {
+                    const numericDepotId =
+                      depot.id ?? depot.depotId;
+
+                    if (!numericDepotId) {
+                      return null;
+                    }
+
+                    return (
+                      <option
+                        key={numericDepotId}
+                        value={numericDepotId}
+                      >
+                        {depot.name || depot.siteName}
+                        {depot.depotCode
+                          ? ` (${depot.depotCode})`
+                          : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {!isLoadingDepots && depotsList.length === 0 && (
+                <p className="text-[10px] text-amber-600 mt-1">
+                  No active depots are currently available.
+                </p>
+              )}
             </div>
 
             {/* Status */}
@@ -546,7 +897,11 @@ export const UserMaster: React.FC = () => {
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded bg-slate-50 border-slate-200 text-brand-600 focus:ring-brand-500 h-4.5 w-4.5 cursor-pointer"
               />
-              <label htmlFor="isActiveCheckbox" className="text-xs text-slate-600 font-semibold cursor-pointer">
+
+              <label
+                htmlFor="isActiveCheckbox"
+                className="text-xs text-slate-600 font-semibold cursor-pointer"
+              >
                 Account Active & Authorized (Can log in to ERP)
               </label>
             </div>
@@ -561,12 +916,16 @@ export const UserMaster: React.FC = () => {
             >
               Cancel
             </button>
+
             <button
               type="submit"
               disabled={isSubmitting}
               className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/10 active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-70"
             >
-              {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isSubmitting && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+
               Save Credentials
             </button>
           </div>

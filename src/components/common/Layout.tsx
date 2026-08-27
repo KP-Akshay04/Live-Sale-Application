@@ -97,9 +97,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   if (!currentUser) return <>{children}</>;
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   // Configure Sidebar links based on role

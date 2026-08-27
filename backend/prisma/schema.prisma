@@ -62,23 +62,28 @@ model Depot {
 }
 
 model LineSaleAccount {
-  id              Int              @id @default(autoincrement()) @map("line_sale_id")
-  partyCode       String           @unique @map("party_code") @db.VarChar(50)
-  accountName     String           @map("account_name") @db.VarChar(150)
-  salesOfficerId  Int              @map("sales_officer_id")
-  priceListId     Int?             @map("price_list_id")
-  vehicleNumber   String?          @map("vehicle_number") @db.VarChar(30)
-  routeName       String?          @map("route_name") @db.VarChar(100)
-  sapCustomerCode String?          @map("sap_customer_code") @db.VarChar(50)
-  isActive        Boolean          @default(true) @map("is_active")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  depotLineSales  DepotLineSale[]
-  goodsIssues     GoodsIssue[]
-  priceList       PriceList?       @relation(fields: [priceListId], references: [id])
-  salesOfficer    User             @relation(fields: [salesOfficerId], references: [id])
-  lineSaleSchemes LineSaleScheme[]
-  sales           Sale[]
+  id                   Int              @id @default(autoincrement()) @map("line_sale_id")
+  partyCode            String           @unique @map("party_code") @db.VarChar(50)
+  accountName          String           @map("account_name") @db.VarChar(150)
+  salesOfficerId       Int              @map("sales_officer_id")
+  priceListId          Int?             @map("price_list_id")
+  vehicleNumber        String?          @map("vehicle_number") @db.VarChar(30)
+  routeName            String?          @map("route_name") @db.VarChar(100)
+  sapCustomerCode      String?          @map("sap_customer_code") @db.VarChar(50)
+  isActive             Boolean          @default(true) @map("is_active")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  contactNo            String?          @map("contact_no") @db.VarChar(20)
+  geographicalLocation String?          @map("geographical_location") @db.VarChar(255)
+  gstn                 String?          @db.VarChar(20)
+  state                String?          @db.VarChar(100)
+  upiQr                String?          @map("upi_qr") @db.LongText
+  depotLineSales       DepotLineSale[]
+  goodsIssues          GoodsIssue[]
+  priceList            PriceList?       @relation(fields: [priceListId], references: [id])
+  salesOfficer         User             @relation(fields: [salesOfficerId], references: [id])
+  lineSaleSchemes      LineSaleScheme[]
+  sales                Sale[]
 
   @@index([salesOfficerId])
   @@index([priceListId])

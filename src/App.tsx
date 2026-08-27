@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/common/Layout';
 import { Toaster } from 'react-hot-toast';
@@ -66,7 +66,6 @@ const RoleDashboardResolver: React.FC = () => {
 export function App() {
   return (
     <AppProvider>
-      <BrowserRouter>
         {/* Toast Container */}
         <Toaster
           position="top-right"
@@ -244,8 +243,7 @@ export function App() {
           {/* Redirect all loose ends to standard workspace root */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AppProvider>
+      </AppProvider>
   );
 }
 

@@ -47,6 +47,7 @@ export const DepotDashboard: React.FC = () => {
     goodsIssues,
     refreshGoodsIssues,
     addGoodsIssue,
+    completeGoodsIssue,
     goodsReturns,
     addGoodsReturn,
     salesEntries,
@@ -1116,13 +1117,37 @@ export const DepotDashboard: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => handleOpenPrint(gi, 'issue')}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs flex items-center gap-1 mx-auto"
-                        >
-                          <Printer className="w-3.5 h-3.5" /> Print Preview
-                        </button>
-                      </td>
+  <div className="flex items-center justify-center gap-2">
+    {gi.status !== 'Completed' && (
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await completeGoodsIssue(gi.id);
+            toast.success(`Goods Issue ${gi.id} completed successfully.`);
+            await refreshGoodsIssues();
+          } catch (error) {
+            console.error('Failed to complete Goods Issue:', error);
+            toast.error('Unable to complete Goods Issue.');
+          }
+        }}
+        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1"
+      >
+        <CheckCircle className="w-3.5 h-3.5" />
+        Complete
+      </button>
+    )}
+
+    <button
+      type="button"
+      onClick={() => handleOpenPrint(gi, 'issue')}
+      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs flex items-center gap-1"
+    >
+      <Printer className="w-3.5 h-3.5" />
+      Print Preview 
+    </button>
+  </div>
+</td>
                     </tr>
                   ))}
 

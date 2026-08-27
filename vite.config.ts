@@ -5,21 +5,38 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
   return {
+    root: path.resolve(__dirname, 'frontend'),
+
     plugins: [react(), tailwindcss()],
+
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'frontend'),
       },
     },
+
     server: {
       proxy: {
         '/api': {
-          target: process.env.VITE_BACKEND_URL || 'http://localhost:5000',
+          target:
+            process.env.VITE_BACKEND_URL ||
+            'http://localhost:5000',
           changeOrigin: true,
         },
       },
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+
+      hmr:
+        process.env.DISABLE_HMR !== 'true',
+
+      watch:
+        process.env.DISABLE_HMR === 'true'
+          ? null
+          : {},
+    },
+
+    build: {
+      outDir: path.resolve(__dirname, 'dist'),
+      emptyOutDir: true,
     },
   };
 });

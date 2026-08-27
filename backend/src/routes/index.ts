@@ -9,6 +9,7 @@ import schemeListRoutes from './schemeList.routes.js';
 import lineSaleRoutes from './lineSale.routes.js';
 import goodsIssueRoutes from './goodsIssue.routes.js';
 import goodsReturnRoutes from './goodsReturn.routes.js';
+import saleRoutes from './sale.routes.js';
 
 const apiRouter = Router();
 
@@ -23,6 +24,7 @@ apiRouter.use('/scheme-lists', schemeListRoutes);
 apiRouter.use('/line-sales', lineSaleRoutes);
 apiRouter.use('/goods-issues', goodsIssueRoutes);
 apiRouter.use('/goods-returns', goodsReturnRoutes);
+apiRouter.use('/sales', saleRoutes);
 
 export default apiRouter;
 

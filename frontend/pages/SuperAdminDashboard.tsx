@@ -42,64 +42,110 @@ export const SuperAdminDashboard: React.FC = () => {
   const totalDepotsCount = depots.length;
   const pendingReturnsCount = goodsReturns.filter((r) => r.status === 'Pending').length;
 
-  // 2. Prepare Recharts Chart Data
-  // Dynamic Area Chart: Group sales by date
-  const salesByDate: { [date: string]: number } = {};
-  salesEntries.forEach((entry) => {
-    // extract date only (YYYY-MM-DD)
-    const dateStr = entry.date.substring(0, 10);
-    salesByDate[dateStr] = (salesByDate[dateStr] || 0) + entry.amount;
-  });
+// 2. Prepare REAL chart data from backend-backed AppContext data
 
-  const areaChartData = Object.keys(salesByDate).map((date) => ({
-    date,
-    revenue: salesByDate[date],
-  })).sort((a, b) => a.date.localeCompare(b.date));
+// ------------------------------------------------------------
+// SALES & REVENUE TREND
+// ------------------------------------------------------------
+// Build a real 7-day calendar series.
+// Days with no sales are legitimately represented as ₹0.
+// This ensures the line chart has multiple points even
+// when all current sales happened on the same day.
 
-  // Fallback if no entries
-  const finalAreaChartData = areaChartData.length > 0 ? areaChartData : [
-    { date: '2026-07-06', revenue: 4200 },
-    { date: '2026-07-07', revenue: 5800 },
-    { date: '2026-07-08', revenue: 7100 },
-    { date: '2026-07-09', revenue: 6400 },
-    { date: '2026-07-10', revenue: 7600 },
-  ];
+const salesByDate: Record<string, number> = {};
 
-  // Dynamic Pie Chart: Category Sales Distribution
-  const categorySalesMap: { [cat: string]: number } = {};
-  salesEntries.forEach((se) => {
-    const prod = products.find((p) => p.id === se.productId);
-    const cat = prod?.category || 'General';
-    categorySalesMap[cat] = (categorySalesMap[cat] || 0) + se.amount;
-  });
+salesEntries.forEach((entry) => {
+  const dateStr = entry.date?.substring(0, 10);
 
-  const pieChartData = Object.keys(categorySalesMap).map((cat) => ({
-    name: cat,
-    value: categorySalesMap[cat],
+  if (!dateStr) return;
+
+  salesByDate[dateStr] =
+    (salesByDate[dateStr] || 0) +
+    Number(entry.amount || 0);
+});
+
+// Use today as the end of the visible 7-day window.
+const chartEndDate = new Date();
+
+const areaChartData = Array.from(
+  { length: 7 },
+  (_, index) => {
+    const date = new Date(chartEndDate);
+
+    date.setDate(
+      chartEndDate.getDate() - (6 - index)
+    );
+
+    const dateStr =
+      date.toISOString().substring(0, 10);
+
+    return {
+      date: dateStr,
+      revenue: salesByDate[dateStr] || 0,
+    };
+  }
+);
+
+
+// ------------------------------------------------------------
+// CATEGORY SALES DISTRIBUTION
+// ------------------------------------------------------------
+const categorySalesMap: Record<string, number> = {};
+
+salesEntries.forEach((entry) => {
+  const product = products.find(
+    (p) =>
+      String(p.id) ===
+      String(entry.productId)
+  );
+
+  const category =
+    product?.category || 'General';
+
+  categorySalesMap[category] =
+    (categorySalesMap[category] || 0) +
+    Number(entry.amount || 0);
+});
+
+const pieChartData = Object.entries(categorySalesMap)
+  .map(([name, value]) => ({
+    name,
+    value,
   }));
 
-  const finalPieChartData = pieChartData.length > 0 ? pieChartData : [
-    { name: 'Beverages', value: 5800 },
-    { name: 'Packaged Water', value: 1800 },
-  ];
 
-  // Dynamic Bar Chart: Sales Officer Performance Comparison
-  const officerSalesMap: { [username: string]: number } = {};
-  salesEntries.forEach((se) => {
-    officerSalesMap[se.salesOfficerUsername] = (officerSalesMap[se.salesOfficerUsername] || 0) + se.amount;
-  });
+// ------------------------------------------------------------
+// SALES OFFICER PERFORMANCE
+// ------------------------------------------------------------
+const officerSalesMap: Record<string, number> = {};
 
-  const barChartData = Object.keys(officerSalesMap).map((uname) => ({
-    name: uname.charAt(0).toUpperCase() + uname.slice(1),
-    Revenue: officerSalesMap[uname],
-  }));
+salesEntries.forEach((entry) => {
+  const username =
+    entry.salesOfficerUsername ||
+    'Unknown';
 
-  const finalBarChartData = barChartData.length > 0 ? barChartData : [
-    { name: 'Ananth (sales)', Revenue: 4800 },
-    { name: 'Nisha (sales_two)', Revenue: 2800 },
-  ];
+  officerSalesMap[username] =
+    (officerSalesMap[username] || 0) +
+    Number(entry.amount || 0);
+});
 
-  const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#3b82f6', '#ec4899'];
+const barChartData = Object.entries(
+  officerSalesMap
+).map(([username, revenue]) => ({
+  name:
+    username.charAt(0).toUpperCase() +
+    username.slice(1),
+  Revenue: revenue,
+}));
+
+
+const COLORS = [
+  '#2563eb',
+  '#10b981',
+  '#f59e0b',
+  '#3b82f6',
+  '#ec4899',
+];
 
   // Top Selling Products Calculation
   const productQtyMap: { [prodId: string]: { name: string; qty: number; amt: number } } = {};
@@ -155,8 +201,8 @@ export const SuperAdminDashboard: React.FC = () => {
             <p className="text-2xl font-display font-bold text-slate-800">
               ₹{totalRevenue.toLocaleString()}
             </p>
-            <span className="text-xs text-emerald-500 font-medium">
-              +14.2% from last week
+            <span className="text-xs text-slate-400 font-medium">
+              Live database total
             </span>
           </div>
         </div>
@@ -173,8 +219,8 @@ export const SuperAdminDashboard: React.FC = () => {
             <p className="text-2xl font-display font-bold text-slate-800">
               {totalSalesCount}
             </p>
-            <span className="text-xs text-emerald-500 font-medium">
-              +8.5% volume growth
+            <span className="text-xs text-slate-400 font-medium">
+            Live database count
             </span>
           </div>
         </div>
@@ -225,7 +271,7 @@ export const SuperAdminDashboard: React.FC = () => {
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={finalAreaChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={areaChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
@@ -233,7 +279,18 @@ export const SuperAdminDashboard: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                <XAxis
+  dataKey="date"
+  tickFormatter={(value) =>
+    new Date(value).toLocaleDateString(
+      'en-IN',
+      {
+        day: '2-digit',
+        month: 'short',
+      }
+    )
+  }
+/> 
                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
                 <Tooltip contentStyle={{ fontSize: '12px', borderRadius: '8px' }} />
                 <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2.5} fillOpacity={1} fill="url(#revenueGrad)" />
@@ -251,7 +308,7 @@ export const SuperAdminDashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={finalPieChartData}
+                  data={pieChartData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -259,7 +316,7 @@ export const SuperAdminDashboard: React.FC = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {finalPieChartData.map((entry, index) => (
+                  {pieChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -274,7 +331,7 @@ export const SuperAdminDashboard: React.FC = () => {
           </div>
           {/* Custom Legends */}
           <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-3 text-xs">
-            {finalPieChartData.map((d, i) => (
+            {pieChartData.map((d, i) => (
               <div key={d.name} className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                 <span className="text-slate-500 font-medium">{d.name}</span>
@@ -293,7 +350,7 @@ export const SuperAdminDashboard: React.FC = () => {
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={finalBarChartData} margin={{ left: -20, bottom: 0 }}>
+              <BarChart data={barChartData} margin={{ left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />

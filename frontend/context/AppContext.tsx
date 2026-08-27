@@ -32,6 +32,7 @@ import { schemeListService } from '../services/schemeListService';
 import { lineSaleService } from '../services/lineSaleService';
 import { goodsIssueService } from '../services/goodsIssueService';
 import { goodsReturnService } from '../services/goodsReturnService';
+import saleService from '../services/saleService';
 
 interface AppContextType {
   // Auth state
@@ -118,6 +119,7 @@ interface AppContextType {
   completeGoodsReturn: (id: string) => void;
 
   salesEntries: SalesEntry[];
+  refreshSalesEntries: () => Promise<void>;
   addSalesEntry: (
     entry: Omit<SalesEntry, 'id' | 'date'>
   ) => void;
@@ -1179,6 +1181,146 @@ export const AppProvider: React.FC<{
       }
     }, []);
 
+
+
+    const refreshSalesEntries =
+  useCallback(async () => {
+    try {
+      const data =
+        await saleService.getSales();
+
+      const mappedSales: SalesEntry[] =
+        data.map((sale: any) => {
+          const firstItem =
+            sale.items?.[0];
+
+          const firstPayment =
+            sale.payments?.[0];
+
+          return {
+            id:
+              sale.id?.toString() ||
+              sale.invoiceNumber,
+
+            shopName:
+              sale.customerName || '',
+
+            partyCode:
+              sale.partyCode || '',
+
+            contactNumber:
+              sale.customerPhone || '',
+
+            productId:
+              firstItem?.productCode ||
+              firstItem?.materialCode ||
+              `PROD-${firstItem?.productId}`,
+
+            productName:
+              firstItem?.productName || '',
+
+            qty:
+              Number(
+                firstItem?.quantity || 0
+              ),
+
+            freeQty:
+              Number(
+                firstItem?.freeQuantity || 0
+              ),
+
+            uom:
+              firstItem?.uom || 'Pcs',
+
+            rate:
+              Number(
+                firstItem?.rate || 0
+              ),
+
+            amount:
+              Number(
+                sale.grossAmount || 0
+              ),
+
+            schemeApplied:
+              firstItem?.applicableScheme ||
+              'No Active Scheme',
+
+            paymentMethod:
+              firstPayment?.paymentMethod ===
+                'UPI' ||
+              firstPayment?.paymentMethod ===
+                'UPI_QR'
+                ? 'UPI'
+                : 'Cash',
+
+            date:
+              sale.saleDate ||
+              sale.createdAt ||
+              new Date().toISOString(),
+
+            salesOfficerUsername:
+              sale.salesOfficer?.loginId ||
+              '',
+
+            items:
+              (sale.items || []).map(
+                (item: any) => ({
+                  productId:
+                    item.productCode ||
+                    item.materialCode ||
+                    `PROD-${item.productId}`,
+
+                  productName:
+                    item.productName || '',
+
+                  additionalName:
+                    item.additionalName || '',
+
+                  qty:
+                    Number(
+                      item.quantity || 0
+                    ),
+
+                  freeQty:
+                    Number(
+                      item.freeQuantity || 0
+                    ),
+
+                  uom:
+                    item.uom || 'Pcs',
+
+                  rate:
+                    Number(
+                      item.rate || 0
+                    ),
+
+                  amount:
+                    Number(
+                      item.netAmount || 0
+                    ),
+
+                  schemeApplied:
+                    item.applicableScheme ||
+                    'No Active Scheme',
+                })
+              ),
+          };
+        });
+
+      setSalesEntries(mappedSales);
+    } catch (error: any) {
+      console.warn(
+        '[Sales] Backend refresh failed:',
+        error?.response?.data ||
+          error?.message ||
+          error
+      );
+    }
+  }, []);
+
+
+
   /* ------------------------------------------------------------------------ */
   /* INITIALIZATION                                                           */
   /* ------------------------------------------------------------------------ */
@@ -1367,6 +1509,7 @@ export const AppProvider: React.FC<{
           refreshSchemeLists(),
           refreshGoodsIssues(),
           refreshGoodsReturns(),
+          refreshSalesEntries(),
         ]);
 
         /*
@@ -3057,6 +3200,7 @@ export const AppProvider: React.FC<{
         completeGoodsReturn,
 
         salesEntries,
+        refreshSalesEntries,
         addSalesEntry,
 
         truckStock,

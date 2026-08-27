@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { SalesEntry, LineSaleAccount, SalesOrderItem } from '../types';
 import { Modal } from '../components/common/Modal';
+import saleService from '../services/saleService';
 import {
   ShoppingBag,
   Coins,
@@ -40,6 +41,7 @@ export const SalesOfficerDashboard: React.FC = () => {
     currentUser,
     salesEntries,
     addSalesEntry,
+    refreshSalesEntries,
     lineSaleAccounts,
     products,
     priceLists,
@@ -125,41 +127,111 @@ export const SalesOfficerDashboard: React.FC = () => {
   };
 
   // AVAILABLE STOCK CALCULATION FOR ASSIGNED LINE
-  const getProductStock = (productId: string) => {
-    if (!assignedLine) return 0;
+const getProductStock = (productId: string) => {
+  if (!assignedLine) return 0;
 
-    // Total Issued Qty to this assigned Line Sale from completed Goods Issues
-    const issuedQty = goodsIssues
-      .filter((gi) => gi.status === 'Completed' && (gi.partyCode === assignedLine.partyCode || gi.partyName === assignedLine.partyName))
-      .reduce((sum, gi) => {
-        const item = gi.items.find((i) => i.productId === productId);
-        return sum + (item ? item.qty : 0);
-      }, 0);
+  const product = products.find(
+    (p) => p.id === productId
+  );
 
-    // Total Returned Qty from Goods Returns
-    const returnedQty = goodsReturns
-      .filter((gr) => gr.partyCode === assignedLine.partyCode || gr.partyName === assignedLine.partyName)
-      .reduce((sum, gr) => {
-        const item = gr.items.find((i) => i.productId === productId);
-        return sum + (item ? item.qty : 0);
-      }, 0);
+  const numericProductId =
+    product?.id?.replace(/^PROD-/i, '');
 
-    // Total Sold Qty (including freeQty) from Sales Entries for this assigned Line
-    const soldQty = salesEntries
-      .filter((se) => se.partyCode === assignedLine.partyCode || se.shopName === assignedLine.partyName)
-      .reduce((sum, se) => {
-        if (se.productId === productId) {
-          return sum + se.qty + (se.freeQty || 0);
-        }
-        if (se.items) {
-          const item = se.items.find((i) => i.productId === productId);
-          if (item) return sum + item.qty + (item.freeQty || 0);
-        }
-        return sum;
-      }, 0);
+  const matchesProduct = (item: any) => {
+    const itemProductId = String(
+      item?.productId ?? ''
+    );
 
-    return Math.max(0, issuedQty - returnedQty - soldQty);
+    const itemProductCode = String(
+      item?.productCode ?? ''
+    );
+
+    const normalizedItemId =
+      itemProductId.replace(/^PROD-/i, '');
+
+    return (
+      itemProductId === productId ||
+      itemProductCode === productId ||
+      normalizedItemId === numericProductId
+    );
   };
+
+  // Total Issued Qty
+  const issuedQty = goodsIssues
+    .filter(
+      (gi) =>
+        gi.status === 'Completed' &&
+        (
+          gi.partyCode === assignedLine.partyCode ||
+          gi.partyName === assignedLine.partyName
+        )
+    )
+    .reduce((sum, gi) => {
+      const item = gi.items?.find(
+        (i: any) => matchesProduct(i)
+      );
+
+      return sum + Number(item?.qty || 0);
+    }, 0);
+
+  // Total Returned Qty
+  const returnedQty = goodsReturns
+    .filter(
+      (gr) =>
+        gr.partyCode === assignedLine.partyCode ||
+        gr.partyName === assignedLine.partyName
+    )
+    .reduce((sum, gr) => {
+      const item = gr.items?.find(
+        (i: any) => matchesProduct(i)
+      );
+
+      return sum + Number(item?.qty || 0);
+    }, 0);
+
+  // Total Sold Qty
+  const soldQty = salesEntries
+    .filter(
+      (se) =>
+        se.partyCode === assignedLine.partyCode ||
+        se.shopName === assignedLine.partyName ||
+        se.salesOfficerUsername === currentUser?.username
+    )
+    .reduce((sum, se) => {
+      if (
+        matchesProduct({
+          productId: se.productId,
+        })
+      ) {
+        return (
+          sum +
+          Number(se.qty || 0) +
+          Number(se.freeQty || 0)
+        );
+      }
+
+      if (se.items) {
+        const item = se.items.find(
+          (i: any) => matchesProduct(i)
+        );
+
+        if (item) {
+          return (
+            sum +
+            Number(item.qty || 0) +
+            Number(item.freeQty || 0)
+          );
+        }
+      }
+
+      return sum;
+    }, 0);
+
+  return Math.max(
+    0,
+    issuedQty - returnedQty - soldQty
+  );
+};
 
   // Total Available Stock across all products for this assigned line
   const totalAvailableStockUnits = products.reduce((sum, p) => sum + getProductStock(p.id), 0);
@@ -283,101 +355,176 @@ export const SalesOfficerDashboard: React.FC = () => {
   });
 
   // SAVE SALE TRANSACTION
-  const handleSaveSale = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSale = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!assignedLine) {
-      toast.error('No assigned Line Sale found for your account.');
+  if (!assignedLine) {
+    toast.error('No assigned Line Sale found for your account.');
+    return;
+  }
+
+  if (!shopName.trim()) {
+    toast.error('Please enter a valid Shop / Outlet Name.');
+    return;
+  }
+
+  if (orderItems.length === 0) {
+    toast.error('Please add at least one product to the order.');
+    return;
+  }
+
+  // Validate Qty & Stock for each item
+  for (const item of orderItems) {
+    if (item.qty <= 0) {
+      toast.error(
+        `Quantity for ${item.productName} must be greater than 0.`
+      );
       return;
     }
 
-    if (!shopName.trim()) {
-      toast.error('Please enter a valid Shop / Outlet Name.');
+    const availableStock = getProductStock(item.productId);
+    const totalRequired = item.qty + item.freeQty;
+
+    if (totalRequired > availableStock) {
+      toast.error(
+        `Insufficient stock for ${item.productName}! Available Stock: ${availableStock} units. Required: ${totalRequired} units.`
+      );
       return;
     }
+  }
 
-    if (orderItems.length === 0) {
-      toast.error('Please add at least one product to the order.');
-      return;
-    }
-
-    // Validate Qty & Stock for each item
-    for (const item of orderItems) {
-      if (item.qty <= 0) {
-        toast.error(`Quantity for ${item.productName} must be greater than 0.`);
-        return;
-      }
-
-      const availableStock = getProductStock(item.productId);
-      const totalRequired = item.qty + item.freeQty;
-      if (totalRequired > availableStock) {
-        toast.error(
-          `Insufficient stock for ${item.productName}! Available Stock: ${availableStock} units. Required: ${totalRequired} units.`
-        );
-        return;
-      }
-    }
-
-    const generatedId = `SL-${Math.floor(88000 + Math.random() * 10000)}`;
-    const currentDate = new Date().toISOString();
-
-    // Save each product line as a SalesEntry
-    orderItems.forEach((item) => {
-      addSalesEntry({
-        shopName: shopName.trim(),
-        partyCode: assignedLine.partyCode,
-        contactNumber: contactNumber.trim(),
-        productId: item.productId,
-        productName: item.productName,
-        qty: item.qty,
-        freeQty: item.freeQty,
-        uom: item.uom,
-        rate: item.rate,
-        amount: item.amount,
-        schemeApplied: item.schemeApplied,
-        paymentMethod,
-        salesOfficerUsername: currentUser?.username || 'sales'
-      });
+  try {
+    toast.loading('Saving sale transaction...', {
+      id: 'saving-sale',
     });
 
-    // Create receipt invoice entry with all items
+    const paymentAmount = grossAmount;
+
+    const createdSale = await saleService.createSale({
+      lineSaleId: assignedLine.lineSaleId,
+
+      customerName: shopName.trim(),
+
+      customerPhone:
+        contactNumber.trim() || undefined,
+
+      items: orderItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.qty,
+        freeQuantity: item.freeQty,
+        uom: item.uom,
+        rate: item.rate,
+        applicableScheme:
+          item.schemeApplied || undefined,
+      })),
+
+      payments: [
+        {
+          paymentMethod:
+            paymentMethod === 'Cash'
+              ? 'CASH'
+              : 'UPI',
+
+          amount: paymentAmount,
+        },
+      ],
+    });
+
+    // IMPORTANT:
+    // Reload authoritative sales data from backend.
+    await refreshSalesEntries();
+
+    toast.success(
+      'Sale transaction recorded successfully!',
+      {
+        id: 'saving-sale',
+      }
+    );
+
+    // Build receipt from the real backend response
     const createdInvoice: SalesEntry = {
-      id: generatedId,
+      id:
+        createdSale.id?.toString() ||
+        `SL-${Date.now()}`,
+
       shopName: shopName.trim(),
-      partyCode: assignedLine.partyCode,
-      contactNumber: contactNumber.trim(),
-      productId: orderItems[0].productId,
-      productName: orderItems.length === 1 ? orderItems[0].productName : `${orderItems[0].productName} (+${orderItems.length - 1} items)`,
+
+      partyCode:
+        assignedLine.partyCode,
+
+      contactNumber:
+        contactNumber.trim(),
+
+      productId:
+        orderItems[0].productId,
+
+      productName:
+        orderItems.length === 1
+          ? orderItems[0].productName
+          : `${orderItems[0].productName} (+${
+              orderItems.length - 1
+            } items)`,
+
       qty: totalPaidQty,
+
       freeQty: totalFreeQty,
-      uom: orderItems[0].uom,
-      rate: orderItems[0].rate,
-      amount: grossAmount,
-      schemeApplied: orderItems[0].schemeApplied,
+
+      uom:
+        orderItems[0].uom,
+
+      rate:
+        orderItems[0].rate,
+
+      amount:
+        grossAmount,
+
+      schemeApplied:
+        orderItems[0].schemeApplied,
+
       paymentMethod,
-      date: currentDate,
-      salesOfficerUsername: currentUser?.username || 'sales',
-      items: orderItems.map((i) => ({
-        productId: i.productId,
-        productName: i.productName,
-        additionalName: i.additionalName,
-        qty: i.qty,
-        freeQty: i.freeQty,
-        uom: i.uom,
-        rate: i.rate,
-        amount: i.amount,
-        schemeApplied: i.schemeApplied
-      }))
+
+      date:
+        createdSale.saleDate ||
+        new Date().toISOString(),
+
+      salesOfficerUsername:
+        currentUser?.username || 'sales',
+
+      items:
+        orderItems.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          additionalName: i.additionalName,
+          qty: i.qty,
+          freeQty: i.freeQty,
+          uom: i.uom,
+          rate: i.rate,
+          amount: i.amount,
+          schemeApplied: i.schemeApplied,
+        })),
     };
 
     setActivePrintInvoice(createdInvoice);
-    toast.success('Sale transaction recorded successfully!');
 
-    // Reset order items after saving
+    // Clear current order
     setOrderItems([]);
 
     setIsPrintModalOpen(true);
-  };
+  } catch (error: any) {
+    console.error(
+      'Failed to create sale:',
+      error
+    );
+
+    toast.error(
+      error?.response?.data?.message ||
+        'Failed to save sale transaction.',
+      {
+        id: 'saving-sale',
+      }
+    );
+  }
+};
 
   const handleOpenPrintReceipt = (entry: SalesEntry) => {
     setActivePrintInvoice(entry);

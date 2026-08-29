@@ -55,6 +55,7 @@ export const ProductMaster: React.FC = () => {
   const [baseUom, setBaseUom] = useState('Box');
   const [alternativeQty, setAlternativeQty] = useState(12);
   const [rate, setRate] = useState(0);
+  const [isActive, setIsActive] = useState(true);
 
   /**
    * Load products authoritatively from MySQL
@@ -117,6 +118,7 @@ export const ProductMaster: React.FC = () => {
   const handleOpenEditModal = (product: Product) => {
     setModalMode('Edit');
     setSelectedProduct(product);
+    setIsActive(product.isActive !== false);
     setId(product.materialCode || product.id);
     setDescription(product.description);
     setAdditionalName(product.additionalName || '');
@@ -169,24 +171,41 @@ export const ProductMaster: React.FC = () => {
         });
         toast.success(`Product ${description} registered in MySQL successfully!`);
       } else if (selectedProduct) {
-        const updateTargetId = selectedProduct.productId || selectedProduct.id;
-        await productService.updateProduct(updateTargetId, {
-          materialCode: id.trim(),
-          description: description.trim(),
-          additionalName: additionalName.trim(),
-          category: category.trim(),
-          group: group.trim(),
-          hsnCode: hsnCode.trim(),
-          barcode: barcode.trim(),
-          gstRate: Number(gstRate),
-          taxRate: Number(gstRate),
-          baseUom: baseUom.trim(),
-          alternativeQty: Number(alternativeQty) || 1,
-          baseRate: Number(rate),
-          rate: Number(rate),
-        });
-        toast.success(`Product ${description} updated in MySQL successfully!`);
-      }
+  const updateTargetId = selectedProduct.productId || selectedProduct.id;
+
+  // Update product master details
+  await productService.updateProduct(updateTargetId, {
+    materialCode: id.trim(),
+    description: description.trim(),
+    additionalName: additionalName.trim(),
+    category: category.trim(),
+    group: group.trim(),
+    hsnCode: hsnCode.trim(),
+    barcode: barcode.trim(),
+    gstRate: Number(gstRate),
+    taxRate: Number(gstRate),
+    baseUom: baseUom.trim(),
+    alternativeQty: Number(alternativeQty) || 1,
+    baseRate: Number(rate),
+    rate: Number(rate),
+  });
+
+  // Update Active / Inactive status separately
+  const previousStatus = selectedProduct.isActive !== false;
+
+  if (previousStatus !== isActive) {
+    await productService.updateProductStatus(
+      updateTargetId,
+      isActive
+    );
+  }
+
+  toast.success(
+    `Product ${description} ${
+      isActive ? 'activated' : 'deactivated'
+    } successfully!`
+  );
+}
 
       setIsModalOpen(false);
       await loadProducts();
@@ -829,6 +848,51 @@ export const ProductMaster: React.FC = () => {
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs focus:outline-none focus:border-brand-500 font-bold text-slate-900"
               />
             </div>
+
+
+            {/* Product Status */}
+{modalMode === 'Edit' && (
+  <div className="space-y-1">
+    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+      Product Status
+    </label>
+
+    <label className="flex items-center justify-between w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+      <div className="flex items-center gap-2">
+        {isActive ? (
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+        ) : (
+          <XCircle className="w-4 h-4 text-slate-500" />
+        )}
+
+        <div>
+          <span
+            className={`text-xs font-semibold ${
+              isActive ? 'text-emerald-700' : 'text-slate-600'
+            }`}
+          >
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+
+          <p className="text-[9px] text-slate-400">
+            {isActive
+              ? 'Product can be used in transactions'
+              : 'Product cannot be used in new transactions'}
+          </p>
+        </div>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={isActive}
+        disabled={isSubmitting}
+        onChange={(e) => setIsActive(e.target.checked)}
+        className="h-4 w-4 accent-brand-600 cursor-pointer"
+      />
+    </label>
+  </div>
+)}
+
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

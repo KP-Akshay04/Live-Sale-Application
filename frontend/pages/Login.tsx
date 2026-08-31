@@ -19,7 +19,7 @@ import {
   Sparkles,
   CheckCircle2,
   Activity,
-  Cpu
+  
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -51,33 +51,13 @@ export const Login: React.FC = () => {
       navigate('/');
     } else {
       toast.dismiss();
-      toast.error('Invalid username or password. Try the demo quick-fills!');
+      toast.error('Invalid username or password.');
     }
   };
 
-  // Demo user quick-fill helpers
-  const handleQuickFill = (role: 'admin' | 'depot' | 'sales') => {
-    toast.dismiss();
-    if (role === 'admin') {
-      setUsername('admin');
-      setPassword('adminpassword');
-    } else if (role === 'depot') {
-      setUsername('depot');
-      setPassword('depotpassword');
-    } else if (role === 'sales') {
-      setUsername('sales');
-      setPassword('salespassword');
-    }
-    toast.success(`${role.toUpperCase()} credentials pre-filled.`);
-  };
-
-  const handleForgotPassword = () => {
-    toast.dismiss();
-    toast('Default demo passwords: adminpassword / depotpassword / salespassword', { icon: 'ℹ️' });
-  };
 
   return (
-    <div className="min-h-screen bg-[#070d19] text-slate-100 flex flex-col justify-between selection:bg-blue-500 selection:text-white font-sans overflow-x-hidden relative" id="login-page">
+    <div className="min-h-screen scroll-smooth bg-[#070d19] text-slate-100 flex flex-col justify-between selection:bg-blue-500 selection:text-white font-sans overflow-x-hidden relative" id="login-page">
       {/* Background Ambient Glow FX */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[140px]" />
@@ -319,45 +299,6 @@ export const Login: React.FC = () => {
                 </div>
               </div>
 
-              {/* DEMO ACCESS QUICK-FILL BOX */}
-              <div className="p-4 bg-slate-950/80 border border-slate-800/90 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-blue-400" />
-                    Demo Access (No Registration Needed)
-                  </span>
-                  <span className="text-[10px] text-cyan-400 font-mono font-bold">1-Click Auto-Fill</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('admin')}
-                    className="py-2 px-2.5 rounded-lg text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25 active:scale-95 transition-all text-center cursor-pointer shadow-xs"
-                    id="quick-fill-admin"
-                  >
-                    Super Admin
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('depot')}
-                    className="py-2 px-2.5 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all text-center cursor-pointer shadow-xs"
-                    id="quick-fill-depot"
-                  >
-                    Depot Person
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('sales')}
-                    className="py-2 px-2.5 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 active:scale-95 transition-all text-center cursor-pointer shadow-xs"
-                    id="quick-fill-sales"
-                  >
-                    Sales Officer
-                  </button>
-                </div>
-              </div>
 
               {/* AUTHENTICATION FORM */}
               <form onSubmit={handleSubmit} className="space-y-4" id="login-form">
@@ -383,20 +324,13 @@ export const Login: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Password Input */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="password" className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                      Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="text-xs font-bold text-slate-300 uppercase tracking-wider block"
+                  >
+                    Password
+                  </label>
 
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -466,7 +400,10 @@ export const Login: React.FC = () => {
         </div>
 
         {/* FEATURES / HIGHLIGHTS STRIP */}
-        <div className="mt-12 pt-8 border-t border-slate-800/60" id="features">
+        <div
+  className="mt-12 pt-8 border-t border-slate-800/60 scroll-mt-8"
+  id="features"
+>
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
               { title: 'Real-time Visibility', desc: 'Get complete visibility of stock, routes, and dispatch in real-time.', icon: Eye },
@@ -483,6 +420,186 @@ export const Login: React.FC = () => {
             ))}
           </div>
         </div>
+
+
+        {/* SOLUTIONS */}
+<section
+  id="solutions"
+  className="mt-12 pt-8 scroll-mt-8"
+>
+  <div className="mb-6">
+    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+      Solutions
+    </span>
+
+    <h2 className="mt-2 text-2xl md:text-3xl font-display font-black text-white">
+      Built for Every Stage of Distribution
+    </h2>
+
+    <p className="mt-2 max-w-2xl text-sm text-slate-400 leading-relaxed">
+      A unified platform connecting sales operations, depot management,
+      inventory movement, pricing, schemes and business visibility.
+    </p>
+  </div>
+
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {[
+      {
+        icon: Warehouse,
+        title: 'Depot Operations',
+        desc: 'Manage stock, goods issues, returns and depot-level operations from one centralized system.',
+      },
+      {
+        icon: Truck,
+        title: 'Sales & Distribution',
+        desc: 'Coordinate line sales, routes, vehicles and field sales activities with real-time visibility.',
+      },
+      {
+        icon: BarChart3,
+        title: 'Pricing & Schemes',
+        desc: 'Centralize price lists and promotional schemes while maintaining operational consistency.',
+      },
+    ].map((solution) => (
+      <div
+        key={solution.title}
+        className="p-5 rounded-xl bg-slate-900/40 border border-slate-800/80 hover:bg-slate-800/30 transition-all"
+      >
+        <solution.icon className="w-5 h-5 text-cyan-400 mb-3" />
+
+        <h3 className="text-sm font-bold text-white">
+          {solution.title}
+        </h3>
+
+        <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+          {solution.desc}
+        </p>
+      </div>
+    ))}
+  </div>
+</section>
+
+
+{/* BENEFITS */}
+<section
+  id="benefits"
+  className="mt-12 pt-8 border-t border-slate-800/60 scroll-mt-8"
+>
+  <div className="mb-6">
+    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+      Benefits
+    </span>
+
+    <h2 className="mt-2 text-2xl md:text-3xl font-display font-black text-white">
+      Visibility That Drives Better Decisions
+    </h2>
+
+    <p className="mt-2 max-w-2xl text-sm text-slate-400 leading-relaxed">
+      Give management and operations teams the information they need to
+      act faster, reduce errors and maintain control across the sales network.
+    </p>
+  </div>
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {[
+      {
+        icon: Activity,
+        title: 'Real-time Visibility',
+        desc: 'Monitor operational data and transaction activity across the distribution network.',
+      },
+      {
+        icon: Zap,
+        title: 'Faster Operations',
+        desc: 'Reduce manual coordination and accelerate day-to-day sales and depot workflows.',
+      },
+      {
+        icon: ShieldCheck,
+        title: 'Controlled Access',
+        desc: 'Role-based access keeps each operational area protected and accountable.',
+      },
+      {
+        icon: TrendingUp,
+        title: 'Better Decisions',
+        desc: 'Use centralized information and dashboards to understand business performance.',
+      },
+    ].map((benefit) => (
+      <div
+        key={benefit.title}
+        className="p-5 rounded-xl bg-slate-900/40 border border-slate-800/80"
+      >
+        <benefit.icon className="w-5 h-5 text-cyan-400 mb-3" />
+
+        <h3 className="text-sm font-bold text-white">
+          {benefit.title}
+        </h3>
+
+        <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+          {benefit.desc}
+        </p>
+      </div>
+    ))}
+  </div>
+</section>
+
+
+{/* ABOUT US */}
+<section
+  id="about"
+  className="mt-12 pt-8 border-t border-slate-800/60 scroll-mt-8"
+>
+  <div className="max-w-3xl">
+    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+      About Us
+    </span>
+
+    <h2 className="mt-2 text-2xl md:text-3xl font-display font-black text-white">
+      A Unified Enterprise Sales Platform
+    </h2>
+
+    <p className="mt-4 text-sm text-slate-400 leading-relaxed">
+      Live Sale Application is designed to bring sales, distribution,
+      inventory, depot operations, pricing and scheme management together
+      in a single operational platform.
+    </p>
+
+    <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+      The platform provides role-based workflows for management,
+      depot teams and sales officers, helping organizations maintain
+      operational control while improving visibility across their
+      distribution network.
+    </p>
+  </div>
+</section>
+
+
+{/* CONTACT */}
+<section
+  id="contact"
+  className="mt-12 pt-8 border-t border-slate-800/60 scroll-mt-8"
+>
+  <div className="rounded-2xl bg-slate-900/40 border border-slate-800/80 p-6 md:p-8">
+    <div className="max-w-2xl">
+      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+        Contact
+      </span>
+
+      <h2 className="mt-2 text-2xl md:text-3xl font-display font-black text-white">
+        Need Assistance?
+      </h2>
+
+      <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+        For application access, operational support or platform-related
+        assistance, contact your organization&apos;s designated system
+        administrator.
+      </p>
+
+      <div className="mt-5 flex items-center gap-2 text-xs font-semibold text-slate-300">
+        <ShieldCheck className="w-4 h-4 text-cyan-400" />
+        Authorized users only
+      </div>
+    </div>
+  </div>
+</section>
+
 
         {/* ENTERPRISE CORE CAPABILITIES BADGE STRIP */}
         <div className="mt-8 p-4 rounded-xl bg-slate-900/30 border border-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">

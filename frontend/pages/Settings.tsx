@@ -24,7 +24,7 @@ export const Settings: React.FC = () => {
   const [autoSettleInvoices, setAutoSettleInvoices] = useState(true);
   const [erpMode, setErpMode] = useState('Standard Simulation');
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async ( e: React.FormEvent ) => {
     e.preventDefault();
     if (!currentPasswordInput || !newPassword || !confirmPassword) {
       toast.error('All password fields are required.');
@@ -39,7 +39,7 @@ export const Settings: React.FC = () => {
       return;
     }
 
-    const success = updatePassword(newPassword);
+    const success = await updatePassword(currentPasswordInput, newPassword);
     if (success) {
       toast.success('Your security password has been changed.');
       setCurrentPasswordInput('');

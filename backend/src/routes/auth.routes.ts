@@ -24,6 +24,19 @@ authRouter.get('/me', authenticate, (req, res, next) => {
 });
 
 /**
+ * @route   POST /api/auth/change-password
+ * @desc    Change password for the currently authenticated user
+ * @access  Private (JWT required)
+ */
+authRouter.post(
+  '/change-password',
+  authenticate,
+  (req, res, next) => {
+    authController.changePassword(req, res, next);
+  }
+);
+
+/**
  * @route   POST /api/auth/logout
  * @desc    Session termination confirmation (Client-side token disposal)
  * @access  Public

@@ -30,6 +30,11 @@ export interface AuthMeResponse {
   };
 }
 
+export interface ChangePasswordResponse {
+  success: boolean;
+  message: string;
+}
+
 export const authApi = {
   async login(loginId: string, password: string): Promise<LoginResponse['data']> {
     const response = await apiClient.post<LoginResponse>('/auth/login', {
@@ -45,6 +50,22 @@ export const authApi = {
 
     return response.data.data.user;
   },
+
+
+    async changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await apiClient.post<{
+    success: boolean;
+    message: string;
+  }>('/auth/change-password', {
+    currentPassword,
+    newPassword,
+  });
+
+  return response.data;
+},  
 
   async logout(): Promise<{ success: boolean; message: string }> {
     try {

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Package,
   Warehouse,
-  Building2,
   Users,
   Coins,
   TicketPercent,
@@ -103,41 +102,98 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   // Configure Sidebar links based on role
-  const getSidebarLinks = () => {
-    switch (currentUser.role) {
-      case 'Super Admin':
-        return [
-          { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-          { label: 'Product Master', path: '/products', icon: Package },
-          { label: 'Depot Master', path: '/depots', icon: Warehouse },
-          { label: 'Sales Office Master', path: '/sales-offices', icon: Building2 },
-          { label: 'User Master', path: '/users', icon: Users },
-          { label: 'Price List Master', path: '/price-list', icon: Coins },
-          { label: 'Scheme List Master', path: '/scheme-list', icon: TicketPercent },
-          { label: 'Line Sale Master', path: '/line-sale-master', icon: Store },
-          { label: 'Reports', path: '/reports', icon: FileBarChart2 },
-          { label: 'Settings', path: '/settings', icon: Settings },
-        ];
-      case 'Depot Person':
-        return [
-          { label: 'Depot Dashboard', path: '/', icon: LayoutDashboard },
-          { label: 'Goods Issue', path: '/goods-issue', icon: Truck },
-          { label: 'Goods Return', path: '/goods-return', icon: ArrowRightLeft },
-          { label: 'Reports & Audits', path: '/reports', icon: FileBarChart2 },
-          { label: 'Settings', path: '/settings', icon: Settings },
-        ];
-      case 'Sales Officer':
-        return [
-          { label: 'Officer Dashboard', path: '/', icon: LayoutDashboard },
-          { label: 'Sales Entry Form', path: '/sales-entry', icon: ShoppingBag },
-          { label: 'Price & Schemes', path: '/prices-schemes', icon: TicketPercent },
-          { label: 'Store Accounts', path: '/sales-offices', icon: Store },
-          { label: 'Settings', path: '/settings', icon: Settings },
-        ];
-      default:
-        return [];
-    }
-  };
+const getSidebarLinks = () => {
+  switch (currentUser.role) {
+    case 'Super Admin':
+      return [
+        {
+          section: 'MAIN',
+          items: [
+            { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+          ],
+        },
+        {
+          section: 'MASTER DATA',
+          items: [
+            { label: 'Product Master', path: '/products', icon: Package },
+            { label: 'Depot Master', path: '/depots', icon: Warehouse },
+            { label: 'User Master', path: '/users', icon: Users },
+          ],
+        },
+        {
+          section: 'COMMERCIAL',
+          items: [
+            { label: 'Price List Master', path: '/price-list', icon: Coins },
+            { label: 'Scheme List Master', path: '/scheme-list', icon: TicketPercent },
+          ],
+        },
+        {
+          section: 'OPERATIONS',
+          items: [
+            { label: 'Line Sale Master', path: '/line-sale-master', icon: Store },
+            { label: 'Reports', path: '/reports', icon: FileBarChart2 },
+          ],
+        },
+        {
+          section: 'SYSTEM',
+          items: [
+            { label: 'Settings', path: '/settings', icon: Settings },
+          ],
+        },
+      ];
+
+    case 'Depot Person':
+      return [
+        {
+          section: 'MAIN',
+          items: [
+            { label: 'Depot Dashboard', path: '/', icon: LayoutDashboard },
+          ],
+        },
+        {
+          section: 'OPERATIONS',
+          items: [
+            { label: 'Goods Issue', path: '/goods-issue', icon: Truck },
+            { label: 'Goods Return', path: '/goods-return', icon: ArrowRightLeft },
+            { label: 'Reports & Audits', path: '/reports', icon: FileBarChart2 },
+          ],
+        },
+        {
+          section: 'SYSTEM',
+          items: [
+            { label: 'Settings', path: '/settings', icon: Settings },
+          ],
+        },
+      ];
+
+    case 'Sales Officer':
+      return [
+        {
+          section: 'MAIN',
+          items: [
+            { label: 'Officer Dashboard', path: '/', icon: LayoutDashboard },
+          ],
+        },
+        {
+          section: 'SALES',
+          items: [
+            { label: 'Sales Entry Form', path: '/sales-entry', icon: ShoppingBag },
+            { label: 'Price & Schemes', path: '/prices-schemes', icon: TicketPercent },
+            { label: 'Store Accounts', path: '/sales-offices', icon: Store },
+          ],
+        },
+        {
+          section: 'SYSTEM',
+          items: [
+            { label: 'Settings', path: '/settings', icon: Settings },
+          ],
+        },
+      ];
+
+    default:
+      return [];
+  }
+};
 
   // Mobile Bottom Navigation Links (thumb-reachable primary targets)
   const getBottomNavLinks = () => {
@@ -168,7 +224,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const menuItems = getSidebarLinks();
+  const sidebarSections = getSidebarLinks();
   const bottomMenuItems = getBottomNavLinks();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -189,91 +245,539 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       </AnimatePresence>
 
       {/* Sidebar - Desktop */}
-      <aside
-        id="desktop-sidebar"
-        className={`bg-slate-900 text-slate-300 fixed md:static inset-y-0 left-0 z-45 w-64 transform ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:w-20'
-        } md:translate-x-0 transition-all duration-300 ease-in-out flex flex-col border-r border-slate-800 shadow-xl`}
+<motion.aside
+  id="desktop-sidebar"
+  initial={false}
+  animate={{
+    width: isSidebarOpen ? 280 : 144,
+  }}
+  transition={{
+    width: {
+      duration: 0.32,
+      ease: [0.4, 0, 0.2, 1],
+    },
+  }}
+  className="
+    bg-slate-900
+    text-slate-300
+    fixed md:static
+    inset-y-0 left-0
+    z-45
+    flex flex-col
+    border-r border-slate-800
+    shadow-xl
+    overflow-hidden
+    transition-transform duration-300
+    -translate-x-full md:translate-x-0
+  "
+>
+  {/* =========================
+      SIDEBAR HEADER
+      ========================= */}
+  <div
+    className="
+      h-16
+      shrink-0
+      flex items-center
+      justify-between
+      px-4
+      border-b border-slate-800/60
+      bg-slate-950/50
+    "
+  >
+    {/* Logo */}
+    <motion.div
+      className="
+        h-10 w-10
+        shrink-0
+        rounded-xl
+        bg-brand-500
+        flex items-center justify-center
+        text-white
+        font-display font-bold text-lg
+        shadow-lg shadow-brand-500/20
+        border border-brand-400/20
+      "
+      whileHover={{ scale: 1.03 }}
+      transition={{ duration: 0.15 }}
+    >
+      LS
+    </motion.div>
+
+    {/* Sidebar Toggle */}
+    <button
+      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      id="toggle-sidebar"
+      aria-label={
+        isSidebarOpen
+          ? 'Collapse sidebar'
+          : 'Expand sidebar'
+      }
+      title={
+        isSidebarOpen
+          ? 'Collapse sidebar'
+          : 'Expand sidebar'
+      }
+      className="
+        h-10 w-10
+        shrink-0
+        rounded-xl
+        flex items-center justify-center
+        text-slate-400
+        hover:text-white
+        hover:bg-slate-800
+        border border-transparent
+        hover:border-slate-700
+        transition-all duration-200
+        active:scale-95
+        cursor-pointer
+      "
+    >
+      <motion.div
+        animate={{
+          rotate: isSidebarOpen ? 0 : 0,
+        }}
+        transition={{
+          duration: 0.2,
+        }}
       >
-        {/* Sidebar Header */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-800/60 justify-between bg-slate-950/40">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-brand-500 flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-brand-500/20">
+        {isSidebarOpen ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Menu className="h-5 w-5" />
+        )}
+      </motion.div>
+    </button>
+  </div>
+
+  {/* =========================
+      EXPANDED SIDEBAR BRAND
+      ========================= */}
+  <AnimatePresence initial={false}>
+    {isSidebarOpen && (
+      <motion.div
+        initial={{
+          opacity: 0,
+          height: 0,
+        }}
+        animate={{
+          opacity: 1,
+          height: 'auto',
+        }}
+        exit={{
+          opacity: 0,
+          height: 0,
+        }}
+        transition={{
+          duration: 0.22,
+          ease: 'easeOut',
+        }}
+        className="
+          shrink-0
+          overflow-hidden
+          border-b border-slate-800/40
+          bg-slate-950/20
+        "
+      >
+        <div className="px-4 py-3">
+          <motion.div
+            initial={{
+              opacity: 0,
+              x: -8,
+            }}
+            animate={{
+              opacity: 1,
+              x: 0,
+            }}
+            transition={{
+              duration: 0.2,
+            }}
+            className="
+              flex items-center
+              gap-3
+            "
+          >
+            <div
+              className="
+                h-8 w-8
+                rounded-lg
+                bg-brand-500/10
+                border border-brand-500/20
+                flex items-center justify-center
+                text-brand-400
+                font-bold text-xs
+              "
+            >
               LS
             </div>
-            {isSidebarOpen && (
-              <span className="font-display font-bold tracking-tight text-white text-base">
-                LIVE SALE <span className="text-brand-400">ERP</span>
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="hidden md:flex p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-            id="toggle-sidebar"
+
+            <div className="overflow-hidden whitespace-nowrap">
+              <p className="text-sm font-display font-bold text-white">
+                LIVE SALE
+              </p>
+              <p className="text-[10px] text-brand-400 font-semibold tracking-wider">
+                ERP PLATFORM
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+
+  {/* =========================
+      USER IDENTITY
+      ========================= */}
+  <div
+    className={`
+      shrink-0
+      border-b border-slate-800/40
+      bg-slate-950/20
+      transition-all duration-300
+      ${isSidebarOpen ? 'p-4' : 'p-3'}
+    `}
+  >
+    <AnimatePresence mode="wait" initial={false}>
+      {isSidebarOpen ? (
+        <motion.div
+          key="expanded-user"
+          initial={{
+            opacity: 0,
+            x: -10,
+          }}
+          animate={{
+            opacity: 1,
+            x: 0,
+          }}
+          exit={{
+            opacity: 0,
+            x: -10,
+          }}
+          transition={{
+            duration: 0.2,
+          }}
+          className="
+            flex items-center gap-3
+            bg-slate-800/40
+            p-3
+            rounded-xl
+            border border-slate-700/20
+          "
+        >
+          <div
+            className="
+              h-10 w-10
+              shrink-0
+              rounded-lg
+              bg-emerald-500/10
+              border border-emerald-500/20
+              flex items-center justify-center
+              text-emerald-400
+              font-semibold text-sm
+              uppercase
+            "
           >
-            {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
-        </div>
+            {currentUser.employeeName.substring(0, 2)}
+          </div>
 
-        {/* User Identity Banner */}
-        <div className="p-4 border-b border-slate-800/40 bg-slate-950/20">
-          {isSidebarOpen ? (
-            <div className="flex items-center gap-3 bg-slate-800/40 p-3 rounded-xl border border-slate-700/20">
-              <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-semibold text-sm uppercase">
-                {currentUser.employeeName.substring(0, 2)}
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-sm font-semibold text-white truncate">{currentUser.employeeName}</p>
-                <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-md bg-brand-500/20 text-brand-400 border border-brand-500/30 uppercase tracking-wider mt-1">
-                  {currentUser.role}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-semibold text-sm uppercase">
-                {currentUser.employeeName.substring(0, 2)}
-              </div>
-            </div>
+          <div className="overflow-hidden min-w-0">
+            <p className="text-sm font-semibold text-white truncate">
+              {currentUser.employeeName}
+            </p>
+
+            <span
+              className="
+                inline-block
+                text-[10px]
+                font-medium
+                px-2 py-0.5
+                rounded-md
+                bg-brand-500/20
+                text-brand-400
+                border border-brand-500/30
+                uppercase
+                tracking-wider
+                mt-1
+                whitespace-nowrap
+              "
+            >
+              {currentUser.role}
+            </span>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="collapsed-user"
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
+          className="flex justify-center"
+        >
+          <div
+            className="
+              h-10 w-10
+              rounded-lg
+              bg-emerald-500/10
+              border border-emerald-500/20
+              flex items-center justify-center
+              text-emerald-400
+              font-semibold text-sm
+              uppercase
+            "
+            title={currentUser.employeeName}
+          >
+            {currentUser.employeeName.substring(0, 2)}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+
+  {/* =========================
+      SIDEBAR NAVIGATION
+      ========================= */}
+  <nav
+    className={`
+      flex-1
+      overflow-y-auto
+      overflow-x-hidden
+      transition-all duration-300
+      ${isSidebarOpen ? 'px-3 py-4' : 'px-3 py-4'}
+    `}
+  >
+    {sidebarSections.map((section) => (
+      <div
+        key={section.section}
+        className="mb-5 last:mb-0"
+      >
+        {/* Section Heading */}
+        <AnimatePresence initial={false}>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{
+                opacity: 0,
+                height: 0,
+                y: -4,
+              }}
+              animate={{
+                opacity: 1,
+                height: 'auto',
+                y: 0,
+              }}
+              exit={{
+                opacity: 0,
+                height: 0,
+                y: -4,
+              }}
+              transition={{
+                duration: 0.2,
+              }}
+              className="px-3 mb-2 overflow-hidden"
+            >
+              <span
+                className="
+                  text-[9px]
+                  font-bold
+                  text-slate-500
+                  uppercase
+                  tracking-[0.16em]
+                  whitespace-nowrap
+                "
+              >
+                {section.section}
+              </span>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
 
-        {/* Sidebar Menu Items */}
-        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
+        {/* Navigation Items */}
+        <div className="space-y-1.5">
+          {section.items.map((item) => {
+            const isActive =
+              location.pathname === item.path;
+
             const Icon = item.icon;
+
             return (
               <button
                 key={item.label}
                 onClick={() => navigate(item.path)}
-                id={`sidebar-link-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-150 ${
-                  isActive
-                    ? 'bg-brand-600 text-white shadow-md shadow-brand-600/10'
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
-                }`}
+                id={`sidebar-link-${item.label
+                  .toLowerCase()
+                  .replace(/\s+/g, '-')}`}
+                title={
+                  !isSidebarOpen
+                    ? item.label
+                    : undefined
+                }
+                className={`
+                  group
+                  w-full
+                  flex items-center
+                  rounded-xl
+                  font-medium text-sm
+                  transition-all duration-200
+                  ${
+                    isSidebarOpen
+                      ? 'gap-3 px-4 py-3'
+                      : 'justify-center px-2 py-3'
+                  }
+                  ${
+                    isActive
+                      ? `
+                        bg-brand-600
+                        text-white
+                        shadow-md
+                        shadow-brand-600/10
+                      `
+                      : `
+                        text-slate-400
+                        hover:bg-slate-800/60
+                        hover:text-slate-200
+                      `
+                  }
+                `}
               >
-                <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
-                {isSidebarOpen && <span className="truncate">{item.label}</span>}
+                <Icon
+                  className={`
+                    h-5 w-5
+                    shrink-0
+                    transition-all duration-200
+                    ${
+                      isActive
+                        ? 'text-white'
+                        : 'text-slate-400'
+                    }
+                    group-hover:scale-105
+                    group-hover:text-slate-200
+                  `}
+                />
+
+                <AnimatePresence initial={false}>
+                  {isSidebarOpen && (
+                    <motion.span
+                      initial={{
+                        opacity: 0,
+                        width: 0,
+                        x: -8,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        width: 'auto',
+                        x: 0,
+                      }}
+                      exit={{
+                        opacity: 0,
+                        width: 0,
+                        x: -8,
+                      }}
+                      transition={{
+                        duration: 0.18,
+                        ease: 'easeOut',
+                      }}
+                      className="
+                        truncate
+                        whitespace-nowrap
+                        overflow-hidden
+                      "
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </button>
             );
           })}
-        </nav>
-
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-800/40 bg-slate-950/20">
-          <button
-            onClick={handleLogout}
-            id="sidebar-logout"
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-red-400 hover:bg-red-500/10 transition-all duration-150"
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            {isSidebarOpen && <span>Logout</span>}
-          </button>
         </div>
-      </aside>
+      </div>
+    ))}
+  </nav>
+
+  {/* =========================
+      LOGOUT
+      ========================= */}
+  <div
+    className={`
+      shrink-0
+      border-t border-slate-800/40
+      bg-slate-950/20
+      transition-all duration-300
+      ${isSidebarOpen ? 'p-4' : 'p-3'}
+    `}
+  >
+    <button
+      onClick={handleLogout}
+      id="sidebar-logout"
+      title={
+        !isSidebarOpen
+          ? 'Logout'
+          : undefined
+      }
+      className={`
+        group
+        w-full
+        flex items-center
+        rounded-xl
+        font-medium text-sm
+        text-red-400
+        hover:bg-red-500/10
+        transition-all duration-200
+        ${
+          isSidebarOpen
+            ? 'gap-3 px-4 py-3'
+            : 'justify-center px-2 py-3'
+        }
+      `}
+    >
+      <LogOut
+        className="
+          h-5 w-5
+          shrink-0
+          transition-transform
+          duration-200
+          group-hover:scale-105
+        "
+      />
+
+      <AnimatePresence initial={false}>
+        {isSidebarOpen && (
+          <motion.span
+            initial={{
+              opacity: 0,
+              width: 0,
+              x: -8,
+            }}
+            animate={{
+              opacity: 1,
+              width: 'auto',
+              x: 0,
+            }}
+            exit={{
+              opacity: 0,
+              width: 0,
+              x: -8,
+            }}
+            transition={{
+              duration: 0.18,
+            }}
+            className="
+              whitespace-nowrap
+              overflow-hidden
+            "
+          >
+            Logout
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
+  </div>
+</motion.aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0" id="main-content-panel">

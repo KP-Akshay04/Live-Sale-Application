@@ -84,3 +84,7 @@ body {
     box-shadow: none;
   }
 }
+
+html {
+  scroll-behavior: smooth;
+}

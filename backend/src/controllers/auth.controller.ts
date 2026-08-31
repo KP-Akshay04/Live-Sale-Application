@@ -1,18 +1,31 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService, AuthenticationError } from '../services/auth.service.js';
+import {
+  authService,
+  AuthenticationError,
+} from '../services/auth.service.js';
 import { AuthenticatedRequest } from '../types/auth.types.js';
 
 export class AuthController {
   /**
    * POST /api/auth/login
-   * Authenticates user credentials and returns safe user profile with signed JWT.
+   *
+   * Authenticates user credentials and returns
+   * safe user profile with signed JWT.
    */
-  async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async login(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { loginId, password } = req.body || {};
 
-      // 1. Request Body Validation
-      if (!loginId || typeof loginId !== 'string' || loginId.trim().length === 0) {
+      // Request Body Validation
+      if (
+        !loginId ||
+        typeof loginId !== 'string' ||
+        loginId.trim().length === 0
+      ) {
         res.status(400).json({
           success: false,
           error: {
@@ -28,7 +41,8 @@ export class AuthController {
         res.status(400).json({
           success: false,
           error: {
-            message: 'loginId exceeds maximum length of 100 characters.',
+            message:
+              'loginId exceeds maximum length of 100 characters.',
             statusCode: 400,
             code: 'VALIDATION_ERROR',
           },
@@ -36,7 +50,11 @@ export class AuthController {
         return;
       }
 
-      if (!password || typeof password !== 'string' || password.length === 0) {
+      if (
+        !password ||
+        typeof password !== 'string' ||
+        password.length === 0
+      ) {
         res.status(400).json({
           success: false,
           error: {
@@ -52,7 +70,8 @@ export class AuthController {
         res.status(400).json({
           success: false,
           error: {
-            message: 'password exceeds maximum length of 128 characters.',
+            message:
+              'password exceeds maximum length of 128 characters.',
             statusCode: 400,
             code: 'VALIDATION_ERROR',
           },
@@ -62,11 +81,13 @@ export class AuthController {
 
       // Extract client metadata for audit tracking
       const clientIp =
-        (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-        req.socket.remoteAddress;
+        (req.headers['x-forwarded-for'] as string)
+          ?.split(',')[0]
+          ?.trim() || req.socket.remoteAddress;
+
       const userAgent = req.headers['user-agent'];
 
-      // 2. Perform Authentication via Service
+      // Perform Authentication
       const result = await authService.login(
         loginId.trim(),
         password,
@@ -74,7 +95,7 @@ export class AuthController {
         userAgent
       );
 
-      // 3. Return sanitized response
+      // Return sanitized response
       res.status(200).json({
         success: true,
         message: 'Login successful',
@@ -95,15 +116,22 @@ export class AuthController {
         });
         return;
       }
+
       next(err);
     }
   }
 
   /**
    * GET /api/auth/me
-   * Retrieves the authenticated user's current profile from the database.
+   *
+   * Retrieves the authenticated user's
+   * current profile from the database.
    */
-  async getMe(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  async getMe(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       if (!req.user || !req.user.userId) {
         res.status(401).json({
@@ -117,7 +145,9 @@ export class AuthController {
         return;
       }
 
-      const user = await authService.getCurrentUser(req.user.userId);
+      const user = await authService.getCurrentUser(
+        req.user.userId
+      );
 
       res.status(200).json({
         success: true,
@@ -137,16 +167,130 @@ export class AuthController {
         });
         return;
       }
+
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/change-password
+   *
+   * Changes the password of the currently
+   * authenticated user.
+   */
+  async changePassword(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      if (!req.user || !req.user.userId) {
+        res.status(401).json({
+          success: false,
+          error: {
+            message: 'Authentication required.',
+            statusCode: 401,
+            code: 'AUTH_REQUIRED',
+          },
+        });
+        return;
+      }
+
+      const {
+        currentPassword,
+        newPassword,
+      } = req.body || {};
+
+      if (
+        !currentPassword ||
+        typeof currentPassword !== 'string'
+      ) {
+        res.status(400).json({
+          success: false,
+          error: {
+            message: 'Current password is required.',
+            statusCode: 400,
+            code: 'VALIDATION_ERROR',
+          },
+        });
+        return;
+      }
+
+      if (
+        !newPassword ||
+        typeof newPassword !== 'string'
+      ) {
+        res.status(400).json({
+          success: false,
+          error: {
+            message: 'New password is required.',
+            statusCode: 400,
+            code: 'VALIDATION_ERROR',
+          },
+        });
+        return;
+      }
+
+      if (newPassword.length > 128) {
+        res.status(400).json({
+          success: false,
+          error: {
+            message:
+              'New password exceeds maximum length of 128 characters.',
+            statusCode: 400,
+            code: 'VALIDATION_ERROR',
+          },
+        });
+        return;
+      }
+
+      const clientIp =
+        (req.headers['x-forwarded-for'] as string)
+          ?.split(',')[0]
+          ?.trim() || req.socket.remoteAddress;
+
+      const userAgent =
+        req.headers['user-agent'];
+
+      await authService.changePassword(
+        req.user.userId,
+        currentPassword,
+        newPassword,
+        clientIp,
+        userAgent
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Password changed successfully.',
+      });
+    } catch (err: unknown) {
+      if (err instanceof AuthenticationError) {
+        res.status(err.statusCode).json({
+          success: false,
+          error: {
+            message: err.message,
+            statusCode: err.statusCode,
+            code: err.code,
+          },
+        });
+        return;
+      }
+
       next(err);
     }
   }
 
   /**
    * POST /api/auth/logout
+   *
    * Stateless JWT logout endpoint.
-   * Clients discard their local token; server confirms session termination.
+   * Client discards its local token.
    */
-  async logout(_req: Request, res: Response): Promise<void> {
+  async logout(
+    _req: Request,
+    res: Response
+  ): Promise<void> {
     res.status(200).json({
       success: true,
       message: 'Logged out successfully',

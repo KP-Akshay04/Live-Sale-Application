@@ -1,12 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // backend/src/config -> backend -> project root
-const projectRootEnv = path.resolve(__dirname, '../../../.env');
+const projectRootEnv = path.resolve(process.cwd(), '.env');
 
 // Load the project-level .env file.
 // Existing process.env values are preserved.

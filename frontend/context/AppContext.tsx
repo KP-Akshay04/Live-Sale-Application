@@ -70,7 +70,7 @@ interface AppContextType {
   addUser: (user: User) => void;
   updateUser: (user: User) => void;
   deleteUser: (employeeId: string) => void;
-  updatePassword: (newPass: string) => boolean;
+  updatePassword: ( currentPassword: string, newPassword: string) => Promise<boolean>;
 
   // Price & Scheme lists
   priceLists: PriceList[];
@@ -2401,24 +2401,45 @@ export const AppProvider: React.FC<{
     );
   };
 
-  const updatePassword = (
-    newPass: string
-  ): boolean => {
-    if (!currentUser) {
-      return false;
-    }
+  const updatePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<boolean> => {
+  if (!currentUser) {
+    return false;
+  }
 
-    const updatedUser = {
-      ...currentUser,
-      password: newPass,
-    };
+  try {
+    await authApi.changePassword(
+      currentPassword,
+      newPassword
+    );
 
-    updateUser(
-      updatedUser
+    /*
+     * Password is intentionally NOT stored in
+     * currentUser or localStorage.
+     *
+     * The backend/database is the source of truth.
+     */
+
+    addNotification(
+      'Password Changed',
+      'Your security password was updated successfully.',
+      'success'
     );
 
     return true;
-  };
+  } catch (error: any) {
+    console.error(
+      '[Auth] Password change failed:',
+      error?.response?.data ||
+        error?.message ||
+        error
+    );
+
+    return false;
+  }
+};
 
   /* ------------------------------------------------------------------------ */
   /* PRICE LISTS                                                              */

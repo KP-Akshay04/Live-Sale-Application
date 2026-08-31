@@ -41,6 +41,24 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <Layout>{children}</Layout>;
 };
 
+
+
+const SettingsRoute: React.FC = () => {
+  const { currentUser } = useApp();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (currentUser.role !== 'Super Admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Settings />;
+};
+
+
+
 // Main Dashboard Router that resolves role-based portals on the root path `/`
 const RoleDashboardResolver: React.FC = () => {
   const { currentUser } = useApp();
@@ -235,10 +253,10 @@ export function App() {
             path="/settings"
             element={
               <ProtectedRoute>
-                <Settings />
+                <SettingsRoute />
               </ProtectedRoute>
-            }
-          />
+          }
+        />
           
           {/* Redirect all loose ends to standard workspace root */}
           <Route path="*" element={<Navigate to="/" replace />} />

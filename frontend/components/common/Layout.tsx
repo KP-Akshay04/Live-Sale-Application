@@ -158,12 +158,6 @@ const getSidebarLinks = () => {
             { label: 'Reports & Audits', path: '/reports', icon: FileBarChart2 },
           ],
         },
-        {
-          section: 'SYSTEM',
-          items: [
-            { label: 'Settings', path: '/settings', icon: Settings },
-          ],
-        },
       ];
 
     case 'Sales Officer':
@@ -180,12 +174,6 @@ const getSidebarLinks = () => {
             { label: 'Sales Entry Form', path: '/sales-entry', icon: ShoppingBag },
             { label: 'Price & Schemes', path: '/prices-schemes', icon: TicketPercent },
             { label: 'Store Accounts', path: '/sales-offices', icon: Store },
-          ],
-        },
-        {
-          section: 'SYSTEM',
-          items: [
-            { label: 'Settings', path: '/settings', icon: Settings },
           ],
         },
       ];
@@ -210,14 +198,12 @@ const getSidebarLinks = () => {
           { label: 'Home', path: '/', icon: LayoutDashboard },
           { label: 'Issue', path: '/goods-issue', icon: Truck },
           { label: 'Return', path: '/goods-return', icon: ArrowRightLeft },
-          { label: 'Settings', path: '/settings', icon: Settings },
         ];
       case 'Sales Officer':
         return [
           { label: 'Home', path: '/', icon: LayoutDashboard },
           { label: 'Sales Entry', path: '/sales-entry', icon: ShoppingBag },
           { label: 'Offers', path: '/prices-schemes', icon: TicketPercent },
-          { label: 'Settings', path: '/settings', icon: Settings },
         ];
       default:
         return [];
@@ -957,15 +943,17 @@ const getSidebarLinks = () => {
                         <p className="text-xs text-slate-400 truncate">{currentUser.username}</p>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          navigate('/settings');
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                      >
+                      {currentUser.role === 'Super Admin' && (
+                        <button
+                          onClick={() => {
+                            setIsProfileOpen(false);
+                            navigate('/settings');
+                          }}
+                            className="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                          >
                         <Settings className="h-4 w-4" /> Account Settings
                       </button>
+        )}
 
                       <div className="h-[1px] bg-slate-100 my-1" />
 

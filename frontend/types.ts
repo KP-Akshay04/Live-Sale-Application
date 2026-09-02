@@ -214,6 +214,7 @@ export interface SalesEntry {
   amount: number;
   schemeApplied: string;
   paymentMethod: 'Cash' | 'UPI';
+  upiReference?: string;
   date: string;
   salesOfficerUsername: string;
   items?: SalesOrderItem[];

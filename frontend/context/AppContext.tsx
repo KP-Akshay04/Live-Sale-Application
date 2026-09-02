@@ -1254,6 +1254,9 @@ export const AppProvider: React.FC<{
                 ? 'UPI'
                 : 'Cash',
 
+            upiReference:
+              firstPayment?.upiReference || '',
+
             date:
               sale.saleDate ||
               sale.createdAt ||
@@ -1322,222 +1325,215 @@ export const AppProvider: React.FC<{
 
 
   /* ------------------------------------------------------------------------ */
-  /* INITIALIZATION                                                           */
-  /* ------------------------------------------------------------------------ */
+/* INITIALIZATION                                                           */
+/* ------------------------------------------------------------------------ */
 
-  useEffect(() => {
-    let isMounted = true;
+useEffect(() => {
+  let isMounted = true;
 
-    const restoreSessionAndLoadData =
-      async () => {
-        /*
-         * --------------------------------------------------------------
-         * STEP 1: Restore JWT session.
-         * --------------------------------------------------------------
-         */
+  const restoreSessionAndLoadData = async () => {
+    /*
+     * ----------------------------------------------------------------------
+     * STEP 1: Restore JWT session.
+     *
+     * Protected backend APIs must NOT be called until authentication
+     * has been successfully established.
+     * ----------------------------------------------------------------------
+     */
 
-        const storedToken =
-          localStorage.getItem(
+    const storedToken = localStorage.getItem(
+      'live_sale_jwt_token'
+    );
+
+    let isAuthenticated = false;
+
+    if (storedToken) {
+      try {
+        const safeUser = await authApi.getMe();
+
+        if (isMounted && safeUser) {
+          const restoredUser =
+            mapSafeUserToUser(safeUser);
+
+          setCurrentUser(restoredUser);
+          setJwtToken(storedToken);
+
+          localStorage.setItem(
+            'live_sale_user',
+            JSON.stringify(restoredUser)
+          );
+
+          isAuthenticated = true;
+        }
+      } catch (error) {
+        console.warn(
+          '[Auth] Stored session invalid or expired:',
+          error
+        );
+
+        if (isMounted) {
+          setCurrentUser(null);
+          setJwtToken(null);
+
+          localStorage.removeItem(
             'live_sale_jwt_token'
           );
 
-        if (storedToken) {
-          try {
-            const safeUser =
-              await authApi.getMe();
-
-            if (
-              isMounted &&
-              safeUser
-            ) {
-              const restoredUser =
-                mapSafeUserToUser(
-                  safeUser
-                );
-
-              setCurrentUser(
-                restoredUser
-              );
-
-              setJwtToken(
-                storedToken
-              );
-
-              localStorage.setItem(
-                'live_sale_user',
-                JSON.stringify(
-                  restoredUser
-                )
-              );
-            }
-          } catch (error) {
-            console.warn(
-              '[Auth] Stored session invalid or expired:',
-              error
-            );
-
-            if (isMounted) {
-              setCurrentUser(null);
-              setJwtToken(null);
-
-              localStorage.removeItem(
-                'live_sale_jwt_token'
-              );
-
-              localStorage.removeItem(
-                'live_sale_user'
-              );
-
-              localStorage.removeItem(
-                'live_sale_refresh_token'
-              );
-            }
-          }
-        }
-
-        /*
-         * --------------------------------------------------------------
-         * STEP 2: Load local cache immediately.
-         *
-         * This keeps the application usable while backend requests
-         * are being made.
-         * --------------------------------------------------------------
-         */
-
-        if (isMounted) {
-          setProducts(
-            loadLocalState(
-              'live_sale_products',
-              INITIAL_PRODUCTS
-            )
+          localStorage.removeItem(
+            'live_sale_user'
           );
 
-          setLineSaleAccounts(
-            loadLocalState(
-              'live_sale_line_sale_accounts',
-              INITIAL_LINE_SALE_ACCOUNTS
-            )
-          );
-
-          setDepots(
-            loadLocalState(
-              'live_sale_depots',
-              INITIAL_DEPOTS
-            )
-          );
-
-          setSalesOffices(
-            loadLocalState(
-              'live_sale_sales_offices',
-              INITIAL_SALES_OFFICES
-            )
-          );
-
-          setUsers(
-            loadLocalState(
-              'live_sale_users',
-              INITIAL_USERS
-            )
-          );
-
-          setPriceLists(
-            loadLocalState(
-              'live_sale_price_lists',
-              INITIAL_PRICE_LISTS
-            )
-          );
-
-          setSchemeLists(
-            loadLocalState(
-              'live_sale_scheme_lists',
-              INITIAL_SCHEME_LISTS
-            )
-          );
-
-          setGoodsIssues(
-            loadLocalState(
-              'live_sale_goods_issues',
-              INITIAL_GOODS_ISSUES
-            )
-          );
-
-          setGoodsReturns(
-            loadLocalState(
-              'live_sale_goods_returns',
-              INITIAL_GOODS_RETURNS
-            )
-          );
-
-          setSalesEntries(
-            loadLocalState(
-              'live_sale_sales_entries',
-              INITIAL_SALES_ENTRIES
-            )
-          );
-
-          setNotifications(
-            loadLocalState(
-              'live_sale_notifications',
-              INITIAL_NOTIFICATIONS
-            )
-          );
-
-          setSyncQueue(
-            loadLocalState<SyncItem[]>(
-              'live_sale_sync_queue',
-              []
-            )
+          localStorage.removeItem(
+            'live_sale_refresh_token'
           );
         }
+      }
+    }
 
-        /*
-         * --------------------------------------------------------------
-         * STEP 3: Backend becomes authoritative.
-         *
-         * We attempt every available backend service.
-         *
-         * If one request fails, the remaining services still refresh.
-         * --------------------------------------------------------------
-         */
+    /*
+     * ----------------------------------------------------------------------
+     * STEP 2: Load local cache.
+     *
+     * Local cache is allowed to hydrate the UI, but it is never treated
+     * as authentication or backend authority.
+     * ----------------------------------------------------------------------
+     */
 
-        await Promise.allSettled([
-          refreshProducts(),
-          refreshDepots(),
-          refreshUsers(),
-          refreshLineSaleAccounts(),
-          refreshPriceLists(),
-          refreshSchemeLists(),
-          refreshGoodsIssues(),
-          refreshGoodsReturns(),
-          refreshSalesEntries(),
-        ]);
+    if (isMounted) {
+      setProducts(
+        loadLocalState(
+          'live_sale_products',
+          INITIAL_PRODUCTS
+        )
+      );
 
-        /*
-         * --------------------------------------------------------------
-         * STEP 4: Finish initialization.
-         * --------------------------------------------------------------
-         */
+      setLineSaleAccounts(
+        loadLocalState(
+          'live_sale_line_sale_accounts',
+          INITIAL_LINE_SALE_ACCOUNTS
+        )
+      );
 
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      };
+      setDepots(
+        loadLocalState(
+          'live_sale_depots',
+          INITIAL_DEPOTS
+        )
+      );
 
-    restoreSessionAndLoadData();
+      setSalesOffices(
+        loadLocalState(
+          'live_sale_sales_offices',
+          INITIAL_SALES_OFFICES
+        )
+      );
 
-    return () => {
-      isMounted = false;
-    };
-  }, [
-    refreshProducts,
-    refreshDepots,
-    refreshUsers,
-    refreshLineSaleAccounts,
-    refreshPriceLists,
-    refreshSchemeLists,
-    refreshGoodsIssues,
-    refreshGoodsReturns,
-  ]);
+      setUsers(
+        loadLocalState(
+          'live_sale_users',
+          INITIAL_USERS
+        )
+      );
+
+      setPriceLists(
+        loadLocalState(
+          'live_sale_price_lists',
+          INITIAL_PRICE_LISTS
+        )
+      );
+
+      setSchemeLists(
+        loadLocalState(
+          'live_sale_scheme_lists',
+          INITIAL_SCHEME_LISTS
+        )
+      );
+
+      setGoodsIssues(
+        loadLocalState(
+          'live_sale_goods_issues',
+          INITIAL_GOODS_ISSUES
+        )
+      );
+
+      setGoodsReturns(
+        loadLocalState(
+          'live_sale_goods_returns',
+          INITIAL_GOODS_RETURNS
+        )
+      );
+
+      setSalesEntries(
+        loadLocalState(
+          'live_sale_sales_entries',
+          INITIAL_SALES_ENTRIES
+        )
+      );
+
+      setNotifications(
+        loadLocalState(
+          'live_sale_notifications',
+          INITIAL_NOTIFICATIONS
+        )
+      );
+
+      setSyncQueue(
+        loadLocalState<SyncItem[]>(
+          'live_sale_sync_queue',
+          []
+        )
+      );
+    }
+
+    /*
+     * ----------------------------------------------------------------------
+     * STEP 3: Backend becomes authoritative ONLY after authentication.
+     *
+     * This prevents 401 Unauthorized requests on the login page.
+     * ----------------------------------------------------------------------
+     */
+
+    if (isAuthenticated) {
+      await Promise.allSettled([
+        refreshProducts(),
+        refreshDepots(),
+        refreshUsers(),
+        refreshLineSaleAccounts(),
+        refreshPriceLists(),
+        refreshSchemeLists(),
+        refreshGoodsIssues(),
+        refreshGoodsReturns(),
+        refreshSalesEntries(),
+      ]);
+    }
+
+    /*
+     * ----------------------------------------------------------------------
+     * STEP 4: Finish initialization.
+     * ----------------------------------------------------------------------
+     */
+
+    if (isMounted) {
+      setIsLoading(false);
+    }
+  };
+
+  restoreSessionAndLoadData();
+
+  return () => {
+    isMounted = false;
+  };
+}, [
+  refreshProducts,
+  refreshDepots,
+  refreshUsers,
+  refreshLineSaleAccounts,
+  refreshPriceLists,
+  refreshSchemeLists,
+  refreshGoodsIssues,
+  refreshGoodsReturns,
+  refreshSalesEntries,
+]);
 
   /* ------------------------------------------------------------------------ */
   /* LOCAL CACHE SYNCHRONIZATION                                              */

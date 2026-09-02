@@ -20,15 +20,19 @@ import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 
 // Route Guard Component to handle auth redirects
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { currentUser, isLoading } = useApp();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-sans">
         <div className="flex flex-col items-center gap-3">
           <div className="h-9 w-9 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-semibold text-slate-400 tracking-wider">Validating session...</span>
+          <span className="text-xs font-semibold text-slate-400 tracking-wider">
+            Validating session...
+          </span>
         </div>
       </div>
     );
@@ -37,10 +41,45 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <Layout>{children}</Layout>;
 };
 
+
+
+const RoleRoute: React.FC<{
+  allowedRoles: (
+    | 'Super Admin'
+    | 'Depot Person'
+    | 'Sales Officer'
+  )[];
+  children: React.ReactNode;
+}> = ({ allowedRoles, children }) => {
+  const { currentUser, isLoading } = useApp();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-9 w-9 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-400 tracking-wider">
+            Validating session...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!allowedRoles.includes(currentUser.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Layout>{children}</Layout>;
+};
 
 
 const SettingsRoute: React.FC = () => {
@@ -204,39 +243,41 @@ export function App() {
 
           {/* Fallbacks/Alias routes for Depot Personnel navigation clicks */}
           <Route
-            path="/goods-issue"
-            element={
-              <ProtectedRoute>
-                <DepotDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/goods-return"
-            element={
-              <ProtectedRoute>
-                <DepotDashboard />
-              </ProtectedRoute>
-            }
-          />
+  path="/goods-issue"
+  element={
+    <RoleRoute allowedRoles={['Depot Person']}>
+      <DepotDashboard />
+    </RoleRoute>
+  }
+/>
+
+<Route
+  path="/goods-return"
+  element={
+    <RoleRoute allowedRoles={['Depot Person']}>
+      <DepotDashboard />
+    </RoleRoute>
+  }
+/>
 
           {/* Fallbacks/Alias routes for Sales Officer navigation clicks */}
           <Route
-            path="/sales-entry"
-            element={
-              <ProtectedRoute>
-                <SalesOfficerDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/prices-schemes"
-            element={
-              <ProtectedRoute>
-                <SchemeListMaster />
-              </ProtectedRoute>
-            }
-          />
+  path="/sales-entry"
+  element={
+    <RoleRoute allowedRoles={['Sales Officer']}>
+      <SalesOfficerDashboard />
+    </RoleRoute>
+  }
+/>
+
+<Route
+  path="/prices-schemes"
+  element={
+    <RoleRoute allowedRoles={['Sales Officer']}>
+      <SchemeListMaster />
+    </RoleRoute>
+  }
+/>
           
           {/* Analytical summary sheets */}
           <Route

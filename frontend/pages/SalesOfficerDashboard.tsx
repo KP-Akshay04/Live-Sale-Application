@@ -86,6 +86,7 @@ export const SalesOfficerDashboard: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI'>('Cash');
+  const [upiReference, setUpiReference] = useState('');
 
   // Auto-populate Customer / Shop details from Assigned Line Sale when loaded
   useEffect(() => {
@@ -393,6 +394,13 @@ const getProductStock = (productId: string) => {
     }
   }
 
+
+  if (paymentMethod === 'UPI' && !upiReference.trim()) {
+  toast.error('Please enter the UTR / Transaction Number.');
+  return;
+}
+
+
   try {
     toast.loading('Saving sale transaction...', {
       id: 'saving-sale',
@@ -400,7 +408,7 @@ const getProductStock = (productId: string) => {
 
     const paymentAmount = grossAmount;
 
-    const createdSale = await saleService.createSale({
+        const createdSale = await saleService.createSale({
       lineSaleId: assignedLine.lineSaleId,
 
       customerName: shopName.trim(),
@@ -426,6 +434,11 @@ const getProductStock = (productId: string) => {
               : 'UPI',
 
           amount: paymentAmount,
+
+          upiReference:
+            paymentMethod === 'UPI'
+              ? upiReference.trim()
+              : undefined,
         },
       ],
     });
@@ -875,7 +888,10 @@ const getProductStock = (productId: string) => {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('Cash')}
+                  onClick={() => {
+                    setPaymentMethod('Cash');
+                    setUpiReference('');
+                  }}
                   id="btn-payment-cash"
                   className={`p-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
                     paymentMethod === 'Cash'
@@ -902,6 +918,36 @@ const getProductStock = (productId: string) => {
                 </button>
               </div>
             </div>
+
+
+                        {paymentMethod === 'UPI' && (
+              <div className="space-y-2 pt-2">
+                <label
+                  htmlFor="upi-reference"
+                  className="block text-xs font-bold text-slate-700"
+                >
+                  UTR / Transaction Number{' '}
+                  <span className="text-red-500">*</span>
+                </label>
+
+                <input
+                  id="upi-reference"
+                  type="text"
+                  value={upiReference}
+                  onChange={(e) =>
+                    setUpiReference(e.target.value)
+                  }
+                  placeholder="Enter UTR / Transaction Number"
+                  maxLength={100}
+                  className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+
+                <p className="text-[10px] text-slate-500">
+                  Enter the UTR shown after the customer completes the UPI payment.
+                </p>
+              </div>
+            )}
+
 
             {/* Save Sale Button */}
             <div className="pt-2">

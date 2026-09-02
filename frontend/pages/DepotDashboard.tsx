@@ -63,6 +63,7 @@ export const DepotDashboard: React.FC = () => {
     refreshGoodsIssues();
   }, [refreshGoodsIssues]);
 
+
   // 1. DATA ACCESS & ISOLATION: Identify active depot assigned to currently logged in Depo Manager
   const activeDepot = depots.find((d) => d.assignedUser === currentUser?.username) || depots[0];
 
@@ -133,7 +134,23 @@ export const DepotDashboard: React.FC = () => {
   const [issueVehicleNum, setIssueVehicleNum] = useState<string>('KA-01-EV-4090');
   const [issueStartingReading, setIssueStartingReading] = useState<number>(12500);
   const [issueDriverName, setIssueDriverName] = useState<string>('Ramesh Kumar');
-  const [issueOfficer, setIssueOfficer] = useState<string>(users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
+  const [issueOfficer, setIssueOfficer] = useState<string>('');
+
+
+  React.useEffect(() => {
+  if (!issueOfficer) {
+    const firstSalesOfficer = users.find(
+      (u) => u.role === 'Sales Officer'
+    );
+
+    if (firstSalesOfficer) {
+      setIssueOfficer(firstSalesOfficer.username);
+    }
+  }
+}, [users, issueOfficer]);
+
+
+
   const [issueNotes, setIssueNotes] = useState<string>('');
   
   // Selection by product or additional name
@@ -247,11 +264,21 @@ export const DepotDashboard: React.FC = () => {
 
   const handleGoodsIssueSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!issuePartyCode) {
       toast.error('Please select an assigned Line Sale party.');
       return;
     }
-    const selectedParty = assignedLineSales.find((l) => l.partyCode === issuePartyCode);
+
+    if (!issueOfficer) {
+      toast.error('Please select a Sales Officer.');
+      return;
+    }
+
+
+    const selectedParty = assignedLineSales.find(
+      (l) => l.partyCode === issuePartyCode
+    );
 
     addGoodsIssue({
       depotSite: activeDepot.siteName,
@@ -1558,6 +1585,7 @@ export const DepotDashboard: React.FC = () => {
                   <th className="py-3 px-4 text-center">Qty</th>
                   <th className="py-3 px-4 text-right">Amount (₹)</th>
                   <th className="py-3 px-4">Sales Officer</th>
+                  <th className="py-3 px-4">UTR / Transaction No.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -1570,12 +1598,13 @@ export const DepotDashboard: React.FC = () => {
                     <td className="py-3 px-4 text-center font-bold text-slate-900">{se.qty}</td>
                     <td className="py-3 px-4 text-right font-bold text-cyan-700 font-mono">₹{se.amount.toLocaleString('en-IN')}</td>
                     <td className="py-3 px-4 text-slate-600">{se.salesOfficerUsername}</td>
+                    <td className="py-3 px-4 font-mono font-semibold text-slate-800">{se.upiReference || '—'}</td>
                   </tr>
                 ))}
 
                 {upiSalesEntries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-8 text-center text-slate-400">
                       No UPI sales transactions recorded for this depot's assigned line sales.
                     </td>
                   </tr>

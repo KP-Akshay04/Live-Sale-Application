@@ -87,6 +87,7 @@ export const LineSaleMaster: React.FC = () => {
   const [schemeListId, setSchemeListId] = useState('');
   const [priceListId, setPriceListId] = useState('');
   const [assignedUser, setAssignedUser] = useState('');
+  const [assignedSalesOfficerId, setAssignedSalesOfficerId] = useState<number | ''>('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [routeName, setRouteName] = useState('');
   const [sapCustomerCode, setSapCustomerCode] = useState('');
@@ -140,8 +141,19 @@ export const LineSaleMaster: React.FC = () => {
     setIsActive(true);
     setSchemeListId(schemeLists[0]?.id || schemeLists[0]?.code || '');
     setPriceListId(priceLists[0]?.id || priceLists[0]?.code || 'PL-STANDARD');
-    const defaultOfficer = users.find((u) => u.role === 'Sales Officer')?.username || 'sales';
-    setAssignedUser(defaultOfficer);
+    const firstSalesOfficer = users.find(
+  (u) =>
+    u.role === 'Sales Officer' &&
+    u.isActive
+);
+
+setAssignedUser(
+  firstSalesOfficer?.username || ''
+);
+
+setAssignedSalesOfficerId(
+  firstSalesOfficer?.userId ?? ''
+);
     setIsFormModalOpen(true);
   };
 
@@ -166,7 +178,26 @@ export const LineSaleMaster: React.FC = () => {
     ? String(acc.priceListId)
     : acc.priceList?.code || String(priceLists[0]?.id || 'PL-STANDARD')
 );
-    setAssignedUser(acc.assignedUser || acc.salesOfficer?.loginId || users.find((u) => u.role === 'Sales Officer')?.username || 'sales');
+    const existingOfficer = users.find(
+  (u) =>
+    u.userId === acc.salesOfficerId ||
+    u.username === acc.assignedUser ||
+    u.loginId === acc.assignedUser ||
+    u.loginId === acc.salesOfficer?.loginId
+);
+
+setAssignedUser(
+  existingOfficer?.username ||
+  acc.assignedUser ||
+  acc.salesOfficer?.loginId ||
+  ''
+);
+
+setAssignedSalesOfficerId(
+  existingOfficer?.userId ??
+  acc.salesOfficerId ??
+  ''
+);
     setIsFormModalOpen(true);
   };
 
@@ -229,6 +260,11 @@ export const LineSaleMaster: React.FC = () => {
       return;
     }
 
+    if (!assignedSalesOfficerId || !assignedUser) {
+  toast.error('Please select a Sales Officer.');
+  return;
+}
+
     // Validate GSTN format if entered
     if (gstn.trim() && gstn.trim().length < 10) {
       toast.error('Please enter a valid GSTN number.');
@@ -266,7 +302,7 @@ export const LineSaleMaster: React.FC = () => {
           schemeListIds: schemeListId ? [schemeListId] : [],
           priceListId,
           assignedUser,
-          salesOfficerId: assignedUser,
+          salesOfficerId: assignedSalesOfficerId,
         });
 
         addLineSaleAccount(created);
@@ -290,7 +326,7 @@ export const LineSaleMaster: React.FC = () => {
           schemeListIds: schemeListId ? [schemeListId] : [],
           priceListId,
           assignedUser,
-          salesOfficerId: assignedUser,
+          salesOfficerId: assignedSalesOfficerId,
         });
 
         updateLineSaleAccount(updated);
@@ -826,19 +862,34 @@ export const LineSaleMaster: React.FC = () => {
               </label>
               <select
                 required
-                value={assignedUser}
-                onChange={(e) => setAssignedUser(e.target.value)}
-                id="select-assigned-officer"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-brand-500"
-              >
-                {users
-                  .filter((u) => u.role === 'Sales Officer')
-                  .map((u) => (
-                    <option key={u.employeeId || u.username} value={u.username}>
-                      {u.employeeName} ({u.username})
-                    </option>
-                  ))}
-              </select>
+                value={assignedSalesOfficerId}
+                onChange={(e) => {
+                  const selectedId = Number(e.target.value);
+                  const selectedOfficer = users.find(
+                    (u) => u.userId === selectedId
+                );
+
+                setAssignedSalesOfficerId(selectedId);
+                setAssignedUser(selectedOfficer?.username || '');
+            }}
+            id="select-assigned-officer"
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+          >
+            <option value="">Select Sales Officer</option>
+
+          {users
+              .filter(
+                  (u) =>
+                    u.role === 'Sales Officer' &&
+                    u.isActive &&
+                    u.userId != null
+              )
+              .map((u) => (
+                <option key={u.userId} value={u.userId}>
+                {u.employeeName} ({u.username})
+                </option>
+            ))}
+        </select>
             </div>
 
             {/* Nearest / Regional Depot */}

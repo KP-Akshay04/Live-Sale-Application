@@ -487,7 +487,7 @@ export const DepotDashboard: React.FC = () => {
       toast.error('No sales entries found to export for the selected date.');
       return;
     }
-    const headers = ['Invoice ID', 'Date', 'Line Sale / Shop', 'Party Code', 'Product', 'Qty', 'Free Qty', 'Rate', 'Amount', 'Payment Method', 'Sales Officer'];
+    const headers = ['Invoice ID', 'Date', 'Line Sale / Shop', 'Party Code', 'Product', 'Qty', 'Free Qty', 'Rate', 'Amount', 'Payment Method', 'UTR / Transaction No.', 'Sales Officer',];
     const rows = todaySalesEntries.map((se) => [
       se.id,
       se.date,
@@ -499,7 +499,8 @@ export const DepotDashboard: React.FC = () => {
       se.rate,
       se.amount,
       se.paymentMethod,
-      se.salesOfficerUsername
+      se.upiReference || '',
+      se.salesOfficerUsername,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');

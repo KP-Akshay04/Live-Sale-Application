@@ -172,8 +172,6 @@ const getSidebarLinks = () => {
           section: 'SALES',
           items: [
             { label: 'Sales Entry Form', path: '/sales-entry', icon: ShoppingBag },
-            { label: 'Price & Schemes', path: '/prices-schemes', icon: TicketPercent },
-            { label: 'Store Accounts', path: '/sales-offices', icon: Store },
           ],
         },
       ];

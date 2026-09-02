@@ -436,278 +436,446 @@ export const Reports: React.FC = () => {
   /* ---------------------------------------------------------------------- */
 
   const monthlyRevenueData = useMemo(() => {
-    type RevenuePoint = {
-      month: string;
-      Sales: number;
-      Returns: number;
-      sortDate: number;
-    };
+  type RevenuePoint = {
+    month: string;
+    Sales: number;
+    Returns: number;
+    sortDate: number;
+  };
 
-    /*
-     * Decide the graph granularity based on
-     * the selected reporting period.
-     */
-    let granularity:
-      | 'hour'
-      | 'day'
-      | 'month';
+  let granularity: 'hour' | 'day' | 'month';
 
-    if (
-      dateRange === 'Today' ||
-      dateRange === 'Yesterday'
-    ) {
-      granularity = 'hour';
-    } else if (
-      dateRange === 'This Week' ||
-      dateRange === 'This Month' ||
-      dateRange === 'Last Month'
-    ) {
-      granularity = 'day';
-    } else if (
-      dateRange === 'Last Quarter' ||
-      dateRange === 'All Time'
-    ) {
-      granularity = 'month';
+  if (
+    dateRange === 'Today' ||
+    dateRange === 'Yesterday'
+  ) {
+    granularity = 'hour';
+  } else if (
+    dateRange === 'This Week' ||
+    dateRange === 'This Month' ||
+    dateRange === 'Last Month'
+  ) {
+    granularity = 'day';
+  } else if (
+    dateRange === 'Last Quarter' ||
+    dateRange === 'All Time'
+  ) {
+    granularity = 'month';
+  } else {
+    if (customFromDate && customToDate) {
+      const from = new Date(
+        `${customFromDate}T00:00:00`
+      );
+      const to = new Date(
+        `${customToDate}T23:59:59.999`
+      );
+
+      const difference =
+        to.getTime() - from.getTime();
+
+      const days =
+        difference /
+        (1000 * 60 * 60 * 24);
+
+      granularity =
+        days <= 31
+          ? 'day'
+          : 'month';
     } else {
-      /*
-       * Custom Range:
-       * <= 31 days  -> daily
-       * > 31 days   -> monthly
-       */
-      if (
-        customFromDate &&
-        customToDate
-      ) {
-        const from = new Date(
-          `${customFromDate}T00:00:00`
-        );
+      granularity = 'day';
+    }
+  }
 
-        const to = new Date(
-          `${customToDate}T23:59:59.999`
-        );
+  const map: Record<string, RevenuePoint> = {};
 
-        const difference =
-          to.getTime() -
-          from.getTime();
-
-        const days =
-          difference /
-          (1000 * 60 * 60 * 24);
-
-        granularity =
-          days <= 31
-            ? 'day'
-            : 'month';
-      } else {
-        granularity = 'day';
-      }
+  const getBucket = (date: Date) => {
+    if (granularity === 'hour') {
+      return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+        String(date.getHours()).padStart(2, '0'),
+      ].join('-');
     }
 
-    const map: Record<
-      string,
-      RevenuePoint
-    > = {};
+    if (granularity === 'day') {
+      return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+      ].join('-');
+    }
 
-    /*
-     * Creates a consistent bucket key
-     * for each transaction.
-     */
-    const getBucket = (
-      date: Date
-    ) => {
-      if (
-        granularity === 'hour'
-      ) {
-        return `${date.getFullYear()}-${String(
-          date.getMonth() + 1
-        ).padStart(2, '0')}-${String(
-          date.getDate()
-        ).padStart(2, '0')} ${String(
-          date.getHours()
-        ).padStart(2, '0')}:00`;
-      }
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+    ].join('-');
+  };
 
-      if (
-        granularity === 'day'
-      ) {
-        return `${date.getFullYear()}-${String(
-          date.getMonth() + 1
-        ).padStart(2, '0')}-${String(
-          date.getDate()
-        ).padStart(2, '0')}`;
-      }
+  const getLabel = (date: Date) => {
+    if (granularity === 'hour') {
+      return date.toLocaleTimeString(
+        'en-IN',
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+        }
+      );
+    }
 
-      return `${date.getFullYear()}-${String(
-        date.getMonth() + 1
-      ).padStart(2, '0')}`;
-    };
-
-    /*
-     * Creates the human-readable label
-     * displayed on the X-axis.
-     */
-    const getLabel = (
-      date: Date
-    ) => {
-      if (
-        granularity === 'hour'
-      ) {
-        return date.toLocaleTimeString(
-          'en-IN',
-          {
-            hour: '2-digit',
-            minute: '2-digit',
-          }
-        );
-      }
-
-      if (
-        granularity === 'day'
-      ) {
-        return date.toLocaleDateString(
-          'en-IN',
-          {
-            day: '2-digit',
-            month: 'short',
-          }
-        );
-      }
-
+    if (granularity === 'day') {
       return date.toLocaleDateString(
         'en-IN',
         {
+          day: '2-digit',
           month: 'short',
-          year: 'numeric',
         }
       );
-    };
+    }
 
-    /*
-     * Add sales into their appropriate
-     * hourly / daily / monthly bucket.
-     */
-    filteredSales.forEach(
-      (sale) => {
-        const date = new Date(
-          sale.date
+    return date.toLocaleDateString(
+      'en-IN',
+      {
+        month: 'short',
+        year: 'numeric',
+      }
+    );
+  };
+
+  /*
+   * Determine the visible calendar range.
+   * Empty periods are intentionally included as
+   * zero-value points so the chart always has
+   * a proper timeline.
+   */
+  const now = new Date();
+
+  let rangeStart: Date;
+  let rangeEnd: Date;
+
+  if (dateRange === 'Today') {
+    rangeStart = new Date(now);
+    rangeStart.setHours(0, 0, 0, 0);
+
+    rangeEnd = new Date(now);
+    rangeEnd.setMinutes(0, 0, 0);
+  } else if (dateRange === 'Yesterday') {
+    rangeStart = new Date(now);
+    rangeStart.setDate(
+      rangeStart.getDate() - 1
+    );
+    rangeStart.setHours(0, 0, 0, 0);
+
+    rangeEnd = new Date(rangeStart);
+    rangeEnd.setHours(23, 0, 0, 0);
+  } else if (dateRange === 'This Week') {
+    rangeStart = new Date(now);
+
+    const day =
+      rangeStart.getDay();
+
+    const daysFromMonday =
+      day === 0 ? 6 : day - 1;
+
+    rangeStart.setDate(
+      rangeStart.getDate() -
+        daysFromMonday
+    );
+    rangeStart.setHours(0, 0, 0, 0);
+
+    rangeEnd = new Date(now);
+    rangeEnd.setHours(0, 0, 0, 0);
+  } else if (dateRange === 'This Month') {
+    rangeStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
+
+    rangeEnd = new Date(now);
+    rangeEnd.setHours(0, 0, 0, 0);
+  } else if (dateRange === 'Last Month') {
+    rangeStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1
+    );
+
+    rangeEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0
+    );
+    rangeEnd.setHours(0, 0, 0, 0);
+  } else if (dateRange === 'Last Quarter') {
+    const currentQuarter =
+      Math.floor(now.getMonth() / 3);
+
+    const lastQuarterStartMonth =
+      currentQuarter * 3 - 3;
+
+    rangeStart = new Date(
+      now.getFullYear(),
+      lastQuarterStartMonth,
+      1
+    );
+
+    rangeEnd = new Date(
+      now.getFullYear(),
+      currentQuarter * 3,
+      0
+    );
+    rangeEnd.setHours(0, 0, 0, 0);
+  } else if (dateRange === 'All Time') {
+    const allDates = [
+      ...filteredSales.map(
+        (sale) =>
+          new Date(sale.date)
+      ),
+      ...filteredGoodsReturns.map(
+        (ret) =>
+          new Date(ret.returnDate)
+      ),
+    ].filter(
+      (date) =>
+        !Number.isNaN(
+          date.getTime()
+        )
+    );
+
+    if (allDates.length > 0) {
+      const earliest =
+        new Date(
+          Math.min(
+            ...allDates.map(
+              (date) =>
+                date.getTime()
+            )
+          )
         );
 
-        if (
-          Number.isNaN(
-            date.getTime()
-          )
-        ) {
-          return;
-        }
+      rangeStart =
+        new Date(
+          earliest.getFullYear(),
+          earliest.getMonth(),
+          1
+        );
+    } else {
+      rangeStart =
+        new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          1
+        );
+    }
 
-        const key =
-          getBucket(date);
+    rangeEnd =
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1
+      );
+  } else if (
+    customFromDate &&
+    customToDate
+  ) {
+    rangeStart = new Date(
+      `${customFromDate}T00:00:00`
+    );
 
-        if (!map[key]) {
-          map[key] = {
-            month:
-              getLabel(date),
-            Sales: 0,
-            Returns: 0,
-            sortDate:
-              date.getTime(),
-          };
-        }
+    rangeEnd = new Date(
+      `${customToDate}T00:00:00`
+    );
+  } else {
+    rangeStart = new Date(now);
+    rangeStart.setDate(
+      rangeStart.getDate() - 6
+    );
+    rangeStart.setHours(0, 0, 0, 0);
 
-        map[key].Sales += Number(
+    rangeEnd = new Date(now);
+    rangeEnd.setHours(0, 0, 0, 0);
+  }
+
+  /*
+   * Create all timeline buckets first.
+   * Every empty bucket starts at zero.
+   */
+  const addBucket = (date: Date) => {
+    const key = getBucket(date);
+
+    if (!map[key]) {
+      map[key] = {
+        month: getLabel(date),
+        Sales: 0,
+        Returns: 0,
+        sortDate: date.getTime(),
+      };
+    }
+  };
+
+  if (granularity === 'hour') {
+    const cursor = new Date(rangeStart);
+
+    while (
+      cursor.getTime() <=
+      rangeEnd.getTime()
+    ) {
+      addBucket(cursor);
+
+      cursor.setHours(
+        cursor.getHours() + 1
+      );
+    }
+  } else if (
+    granularity === 'day'
+  ) {
+    const cursor = new Date(
+      rangeStart
+    );
+    cursor.setHours(0, 0, 0, 0);
+
+    while (
+      cursor.getTime() <=
+      rangeEnd.getTime()
+    ) {
+      addBucket(cursor);
+
+      cursor.setDate(
+        cursor.getDate() + 1
+      );
+    }
+  } else {
+    const cursor = new Date(
+      rangeStart.getFullYear(),
+      rangeStart.getMonth(),
+      1
+    );
+
+    const finalMonth = new Date(
+      rangeEnd.getFullYear(),
+      rangeEnd.getMonth(),
+      1
+    );
+
+    while (
+      cursor.getTime() <=
+      finalMonth.getTime()
+    ) {
+      addBucket(cursor);
+
+      cursor.setMonth(
+        cursor.getMonth() + 1
+      );
+    }
+  }
+
+  /*
+   * Overlay actual sales on top of the
+   * zero-filled timeline.
+   */
+  filteredSales.forEach(
+    (sale) => {
+      const date = new Date(
+        sale.date
+      );
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return;
+      }
+
+      const key =
+        getBucket(date);
+
+      if (!map[key]) {
+        addBucket(date);
+      }
+
+      map[key].Sales +=
+        Number(
           sale.amount || 0
         );
 
-        /*
-         * Keep the earliest timestamp
-         * for correct chronological sorting.
-         */
-        map[key].sortDate =
-          Math.min(
-            map[key].sortDate,
-            date.getTime()
-          );
-      }
-    );
+      map[key].sortDate =
+        Math.min(
+          map[key].sortDate,
+          date.getTime()
+        );
+    }
+  );
 
-    /*
-     * Add goods return amounts.
-     *
-     * The frontend return structure does
-     * not expose one guaranteed total amount,
-     * so calculate:
-     *
-     * quantity × rate
-     */
-    filteredGoodsReturns.forEach(
-      (ret) => {
-        const date = new Date(
-          ret.returnDate
+  /*
+   * Overlay actual goods returns.
+   *
+   * Return amount =
+   * quantity × rate
+   */
+  filteredGoodsReturns.forEach(
+    (ret) => {
+      const date = new Date(
+        ret.returnDate
+      );
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return;
+      }
+
+      const key =
+        getBucket(date);
+
+      if (!map[key]) {
+        addBucket(date);
+      }
+
+      const returnAmount =
+        ret.items.reduce(
+          (
+            sum: number,
+            item: any
+          ) =>
+            sum +
+            Number(
+              item.qty || 0
+            ) *
+              Number(
+                item.rate || 0
+              ),
+          0
         );
 
-        if (
-          Number.isNaN(
-            date.getTime()
-          )
-        ) {
-          return;
-        }
+      map[key].Returns +=
+        returnAmount;
 
-        const key =
-          getBucket(date);
+      map[key].sortDate =
+        Math.min(
+          map[key].sortDate,
+          date.getTime()
+        );
+    }
+  );
 
-        if (!map[key]) {
-          map[key] = {
-            month:
-              getLabel(date),
-            Sales: 0,
-            Returns: 0,
-            sortDate:
-              date.getTime(),
-          };
-        }
-
-        const returnAmount =
-          ret.items.reduce(
-            (
-              sum: number,
-              item: any
-            ) =>
-              sum +
-              Number(
-                item.qty || 0
-              ) *
-                Number(
-                  item.rate || 0
-                ),
-            0
-          );
-
-        map[key].Returns +=
-          returnAmount;
-
-        map[key].sortDate =
-          Math.min(
-            map[key].sortDate,
-            date.getTime()
-          );
-      }
-    );
-
-    return Object.values(
-      map
-    ).sort(
-      (a, b) =>
-        a.sortDate -
-        b.sortDate
-    );
-  }, [
-    filteredSales,
-    filteredGoodsReturns,
-    dateRange,
-    customFromDate,
-    customToDate,
-  ]);
+  return Object.values(
+    map
+  ).sort(
+    (a, b) =>
+      a.sortDate -
+      b.sortDate
+  );
+}, [
+  filteredSales,
+  filteredGoodsReturns,
+  dateRange,
+  customFromDate,
+  customToDate,
+]);
 
   /* ---------------------------------------------------------------------- */
   /* EXPORT DATA                                                            */

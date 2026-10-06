@@ -557,12 +557,12 @@ const getProductStock = (productId: string) => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6 pb-12">
       {/* HEADER & ASSIGNED LINE KPI BAR */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Sales Officer Dashboard</h1>
+          <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Sales Officer Dashboard</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
               Live Billing
             </span>
@@ -576,7 +576,7 @@ const getProductStock = (productId: string) => {
             <span className="text-slate-300">•</span>
             <span className="text-xs text-slate-500 font-medium">Site/Depot: {assignedLine.nearestDepot}</span>
           </div>
-          <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap pl-1">
+          <div className="flex items-start sm:items-center gap-x-3 gap-y-1 text-xs text-slate-500 flex-wrap pl-1">
             <span>Contact: {assignedLine.contactNo}</span>
             <span>•</span>
             <span className="font-mono text-[11px] text-slate-600">
@@ -590,11 +590,11 @@ const getProductStock = (productId: string) => {
         </div>
 
         {/* Quick Modal View Buttons */}
-        <div className="flex items-center gap-3 flex-wrap self-start xl:self-center">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 self-stretch xl:self-center">
           <button
             type="button"
             onClick={() => setIsSchemeModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="w-full sm:w-auto min-h-10 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <TicketPercent className="w-4 h-4 text-amber-600" />
             <span>View Line Schemes</span>
@@ -603,7 +603,7 @@ const getProductStock = (productId: string) => {
           <button
             type="button"
             onClick={() => setIsPriceListModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200/80 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="w-full sm:w-auto min-h-10 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200/80 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <Coins className="w-4 h-4 text-blue-600" />
             <span>View Price List</span>
@@ -612,12 +612,12 @@ const getProductStock = (productId: string) => {
       </div>
 
       {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         {/* Total Available Line Stock */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Line Available Stock</span>
-            <div className="text-2xl font-bold font-display text-slate-900 font-mono">
+            <div className="text-xl sm:text-2xl font-bold font-display text-slate-900 font-mono">
               {totalAvailableStockUnits} <span className="text-xs font-sans text-slate-500 font-normal">Units</span>
             </div>
             <p className="text-[11px] text-slate-500">Issued Load minus Returns & Sales</p>
@@ -628,10 +628,10 @@ const getProductStock = (productId: string) => {
         </div>
 
         {/* Total Cash Collections */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cash Collected</span>
-            <div className="text-2xl font-bold font-display text-purple-700 font-mono">
+            <div className="text-xl sm:text-2xl font-bold font-display text-purple-700 font-mono">
               ₹{totalCashAmount.toLocaleString('en-IN')}
             </div>
             <p className="text-[11px] text-slate-500">Total cash transactions today</p>
@@ -642,10 +642,10 @@ const getProductStock = (productId: string) => {
         </div>
 
         {/* Total UPI Collections */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">UPI / QR Collected</span>
-            <div className="text-2xl font-bold font-display text-emerald-700 font-mono">
+            <div className="text-xl sm:text-2xl font-bold font-display text-emerald-700 font-mono">
               ₹{totalUpiAmount.toLocaleString('en-IN')}
             </div>
             <p className="text-[11px] text-slate-500">Direct online payment received</p>
@@ -657,11 +657,11 @@ const getProductStock = (productId: string) => {
       </div>
 
       {/* NAVIGATION TABS */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
+      <div className="flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto -mx-1 px-1">
         <button
           type="button"
           onClick={() => setActiveTab('entry')}
-          className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+          className={`min-w-max min-h-11 pb-3 px-3 sm:px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
             activeTab === 'entry'
               ? 'border-brand-600 text-brand-700 font-extrabold'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -674,7 +674,7 @@ const getProductStock = (productId: string) => {
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+          className={`min-w-max min-h-11 pb-3 px-3 sm:px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
             activeTab === 'history'
               ? 'border-brand-600 text-brand-700 font-extrabold'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -687,7 +687,7 @@ const getProductStock = (productId: string) => {
         <button
           type="button"
           onClick={() => setActiveTab('stock')}
-          className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+          className={`min-w-max min-h-11 pb-3 px-3 sm:px-4 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
             activeTab === 'stock'
               ? 'border-brand-600 text-brand-700 font-extrabold'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -700,10 +700,10 @@ const getProductStock = (productId: string) => {
 
       {/* TAB 1: SALES ENTRY SECTION */}
       {activeTab === 'entry' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Main Sales Product Entry Form */}
-          <form onSubmit={handleSaveSale} className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6" id="sales-entry-form">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <form onSubmit={handleSaveSale} className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-5 sm:space-y-6" id="sales-entry-form">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4 text-brand-600" />
                 Issue Retail Sale Invoice
@@ -746,7 +746,7 @@ const getProductStock = (productId: string) => {
 
             {/* PRODUCT SELECTION SECTION */}
             <div className="space-y-3 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
                 <div className="flex items-center gap-2.5">
                   <Package className="w-4 h-4 text-brand-600" />
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Product Selection</span>
@@ -763,15 +763,15 @@ const getProductStock = (productId: string) => {
                     setIsProductModalOpen(true);
                   }}
                   id="btn-add-new-product"
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer active:scale-[0.98]"
+                  className="w-full sm:w-auto min-h-10 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer active:scale-[0.98]"
                 >
                   <Plus className="w-4 h-4" />
                   <span>+ Add New Product</span>
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 [-webkit-overflow-scrolling:touch]">
+                <table className="w-full min-w-[920px] text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px] uppercase font-bold tracking-wider">
                       <th className="py-2.5 px-3">#</th>
@@ -885,7 +885,7 @@ const getProductStock = (productId: string) => {
             {/* Payment Method Selection */}
             <div className="space-y-2 pt-2">
               <label className="block text-xs font-bold text-slate-700">Payment Method <span className="text-red-500">*</span></label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -939,7 +939,7 @@ const getProductStock = (productId: string) => {
                   }
                   placeholder="Enter UTR / Transaction Number"
                   maxLength={100}
-                  className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  className="w-full min-h-11 px-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 />
 
                 <p className="text-[10px] text-slate-500">
@@ -954,7 +954,7 @@ const getProductStock = (productId: string) => {
               <button
                 type="submit"
                 id="btn-save-sale"
-                className="w-full py-3.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 active:scale-[0.99] transition-all cursor-pointer"
+                className="w-full min-h-12 py-3.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 active:scale-[0.99] transition-all cursor-pointer"
               >
                 <Save className="w-4.5 h-4.5" />
                 <span>Save Sale Transaction</span>
@@ -963,10 +963,10 @@ const getProductStock = (productId: string) => {
           </form>
 
           {/* Right Column: Live Payment QR Preview & Calculation Summary */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* UPI QR Code Preview Box (Shows when UPI is selected) */}
             {paymentMethod === 'UPI' && (
-              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 text-center">
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 text-center">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <QrCode className="w-4 h-4 text-emerald-600" />
@@ -982,7 +982,7 @@ const getProductStock = (productId: string) => {
                     <img
                       src={assignedLine.upiQr}
                       alt="UPI Payment QR Code"
-                      className="w-44 h-44 object-contain mx-auto rounded-lg shadow-xs"
+                      className="w-36 h-36 sm:w-44 sm:h-44 object-contain mx-auto rounded-lg shadow-xs"
                     />
                   </div>
                 ) : (
@@ -999,7 +999,7 @@ const getProductStock = (productId: string) => {
             )}
 
             {/* Summary Information Card */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-3 text-xs">
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm space-y-3 text-xs">
               <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Order Summary</h3>
               <div className="flex justify-between text-slate-600">
                 <span>Product Items</span>
@@ -1028,39 +1028,39 @@ const getProductStock = (productId: string) => {
 
       {/* TAB 2: SALES HISTORY SECTION */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-sm font-bold text-slate-800">Sales Transactions Log</h2>
               <p className="text-xs text-slate-500">Historical billing entries for {assignedLine.partyName}</p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-slate-400" />
                 <input
                   type="date"
                   value={selectedSalesDate}
                   onChange={(e) => setSelectedSalesDate(e.target.value)}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-brand-500"
+                  className="w-full sm:w-auto min-h-10 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-brand-500"
                 />
               </div>
 
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Search invoice or shop..."
                   value={salesSearchTerm}
                   onChange={(e) => setSalesSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-brand-500 w-48"
+                  className="w-full sm:w-48 min-h-10 pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-brand-500"
                 />
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 [-webkit-overflow-scrolling:touch]">
+            <table className="w-full min-w-[900px] text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-bold tracking-wider">
                   <th className="py-3 px-4">Invoice ID</th>
@@ -1129,18 +1129,18 @@ const getProductStock = (productId: string) => {
 
       {/* TAB 3: STOCK BREAKDOWN SECTION */}
       {activeTab === 'stock' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4">
           <div className="pb-4 border-b border-slate-100">
             <h2 className="text-sm font-bold text-slate-800">Line Stock Inventory</h2>
             <p className="text-xs text-slate-500">Live stock balance breakdown for {assignedLine.partyName}</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {products.map((prod) => {
               const availStock = getProductStock(prod.id);
               const priceRate = getItemRate(prod.id);
               return (
-                <div key={prod.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div key={prod.id} className="p-3 sm:p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="font-mono text-[10px] text-brand-600 font-bold block">{prod.id}</span>
@@ -1176,15 +1176,15 @@ const getProductStock = (productId: string) => {
         title={`Applicable Promotional Schemes — ${assignedLine.partyName}`}
         size="lg"
       >
-        <div className="space-y-4">
-          <div className="p-4 bg-amber-50 border border-amber-200/60 rounded-xl text-xs text-amber-900 space-y-1">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="p-3 sm:p-4 bg-amber-50 border border-amber-200/60 rounded-xl text-xs text-amber-900 space-y-1">
             <span className="font-bold block">Assigned Scheme List: {currentSchemeList?.name || 'Standard Promotion Scheme'} ({resolvedSchemeListId})</span>
             <p className="text-amber-800">Free quantity offers are automatically calculated when entering order quantity.</p>
           </div>
 
           {currentSchemeList ? (
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 [-webkit-overflow-scrolling:touch]">
+              <table className="w-full min-w-[620px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="p-3">Product Description</th>
@@ -1221,15 +1221,15 @@ const getProductStock = (productId: string) => {
         title={`Applicable Price List — ${assignedLine.partyName}`}
         size="lg"
       >
-        <div className="space-y-4">
-          <div className="p-4 bg-blue-50 border border-blue-200/60 rounded-xl text-xs text-blue-900 space-y-1">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200/60 rounded-xl text-xs text-blue-900 space-y-1">
             <span className="font-bold block">Assigned Price List: {currentPriceList?.name || 'Standard Price List'} ({resolvedPriceListId})</span>
             <p className="text-blue-700">Rates from this price master are automatically populated during billing for Line Sale {assignedLine.partyCode}.</p>
           </div>
 
           {currentPriceList ? (
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 [-webkit-overflow-scrolling:touch]">
+              <table className="w-full min-w-[620px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="p-3">Product Description</th>
@@ -1264,7 +1264,7 @@ const getProductStock = (productId: string) => {
         title="Select Product from Product Master"
         size="lg"
       >
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -1279,7 +1279,7 @@ const getProductStock = (productId: string) => {
           </div>
 
           <div className="overflow-x-auto max-h-96 rounded-xl border border-slate-200">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full min-w-[900px] text-left border-collapse text-xs">
               <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 text-slate-600 uppercase font-bold text-[10px] tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3">Product ID</th>
@@ -1347,15 +1347,15 @@ const getProductStock = (productId: string) => {
         size="lg"
       >
         {activePrintInvoice && (
-          <div className="space-y-6">
-            <div className="p-6 border border-slate-200 rounded-2xl bg-white shadow-xs space-y-6">
-              <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="p-4 sm:p-6 border border-slate-200 rounded-2xl bg-white shadow-xs space-y-5 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-3 border-b border-slate-200 pb-4">
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">BINDU LIVE SALE APPLICATION</h3>
                   <p className="text-xs text-slate-500">Official Retail Sale Tax Receipt</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">Line Sale: {activePrintInvoice.partyCode || assignedLine.partyCode}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="font-mono font-bold text-sm text-slate-900 block">{activePrintInvoice.id}</span>
                   <span className="text-[10px] text-slate-400 block">{activePrintInvoice.date.substring(0, 10)}</span>
                   <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1364,7 +1364,7 @@ const getProductStock = (productId: string) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Retail Shop Outlet</span>
                   <p className="font-bold text-slate-800 mt-0.5">{activePrintInvoice.shopName}</p>
@@ -1377,7 +1377,8 @@ const getProductStock = (productId: string) => {
                 </div>
               </div>
 
-              <table className="w-full text-left border-collapse text-xs">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 [-webkit-overflow-scrolling:touch]">
+              <table className="w-full min-w-[620px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase">
                     <th className="py-2">Product</th>
@@ -1415,6 +1416,7 @@ const getProductStock = (productId: string) => {
                   )}
                 </tbody>
               </table>
+              </div>
 
               <div className="flex justify-between items-center border-t border-slate-200 pt-4 text-xs font-bold text-slate-800">
                 <span>Total Received ({activePrintInvoice.paymentMethod})</span>
@@ -1422,18 +1424,18 @@ const getProductStock = (productId: string) => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsPrintModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="w-full sm:w-auto min-h-10 px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
               >
                 Close
               </button>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="w-full sm:w-auto min-h-10 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Printer className="w-4 h-4" /> Print Receipt
               </button>
